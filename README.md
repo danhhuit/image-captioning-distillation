@@ -1,1 +1,18 @@
-# image-captioning-distillation
+# Image Captioning Distillation – Week 2
+
+## Dataset
+Flickr8K: 6000 train, 1000 validation, 1000 test.
+
+## Models
+- ResNet-50 + Transformer Decoder
+- EfficientNet-B3 + Transformer Decoder
+- ViT-B/16 + Transformer Decoder
+- CLIP-ViT-B/16 + Transformer Decoder
+
+## Best result
+CLIP-ViT-B/16:
+BLEU-4 = 0.199172
+CIDEr = 0.499591
+
+## Artifacts
+[Google Drive: checkpoints, logs, metrics, predictions, figures](DÁN_LINK_DRIVE)
