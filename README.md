@@ -15,4 +15,4 @@ BLEU-4 = 0.199172
 CIDEr = 0.499591
 
 ## Artifacts
-[Google Drive: checkpoints, logs, metrics, predictions, figures](DÁN_LINK_DRIVE)
+[Google Drive: checkpoints, logs, metrics, predictions, figures](https://drive.google.com/drive/folders/1aSBxQOcLDj0wnCjOhfsIpIVWjP_l0ogJ)
