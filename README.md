@@ -1,4 +1,4 @@
-# Image Captioning Distillation – Week 2
+# Image Captioning Distillation
 
 ## Dataset
 Flickr8K: 6000 train, 1000 validation, 1000 test.
