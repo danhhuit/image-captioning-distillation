@@ -87,6 +87,8 @@ internal sealed interface CaptionUiState {
 }
 
 internal data class CaptionPresentation(
+    val historyId: String?,
+    val favorite: Boolean,
     val source: ImageInputSource,
     val sourceWidth: Int,
     val sourceHeight: Int,
@@ -137,7 +139,7 @@ internal fun CaptionAppScreen(
                         ) {
                             Box(contentAlignment = Alignment.Center) {
                                 Text(
-                                    text = "AI",
+                                    text = "Model",
                                     color = MaterialTheme.colorScheme.onPrimary,
                                     fontWeight = FontWeight.ExtraBold,
                                     fontSize = 15.sp,
@@ -278,7 +280,7 @@ private fun HeroCard() {
                 lineHeight = 35.sp,
             )
             Text(
-                text = "Chọn hoặc chụp một bức ảnh. Mô hình AI sẽ tạo chú thích trong vài giây.",
+                text = "Chọn hoặc chụp một bức ảnh. Mô hình sẽ tạo chú thích trong vài giây.",
                 style = MaterialTheme.typography.bodyMedium,
                 color = Color.White.copy(alpha = 0.86f),
             )
@@ -474,7 +476,7 @@ private fun ReadyCard(modelLoadMs: Double) {
 @Composable
 private fun ProcessingCard(source: ImageInputSource) {
     StatusCard(
-        title = "AI đang quan sát ảnh",
+        title = "Mô hình đang phân tích ảnh",
         description = "Đang xử lý ảnh từ ${source.label}, trích xuất đặc trưng và tạo câu bằng Beam-3.",
         showProgress = true,
     )
@@ -560,7 +562,7 @@ private fun ResultCard(result: CaptionPresentation) {
                         fontWeight = FontWeight.Bold,
                     )
                     Text(
-                        text = "AI mô tả ảnh của bạn",
+                        text = "Kết quả mô tả",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )

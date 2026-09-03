@@ -21,6 +21,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.core.content.FileProvider
@@ -52,19 +53,55 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         setContent {
-            MobileImageCaptioningTheme {
-                Phase8InteractiveScreen()
+            val context = LocalContext.current
+            var themeMode by remember {
+                mutableStateOf(AppPreferences.loadTheme(context))
+            }
+            var language by remember {
+                mutableStateOf(AppPreferences.loadLanguage(context))
+            }
+            val systemDark = isSystemInDarkTheme()
+            val useDarkTheme = when (themeMode) {
+                AppThemeMode.System -> systemDark
+                AppThemeMode.Light -> false
+                AppThemeMode.Dark -> true
+            }
+            MobileImageCaptioningTheme(darkTheme = useDarkTheme) {
+                Phase8InteractiveScreen(
+                    themeMode = themeMode,
+                    language = language,
+                    onThemeModeChange = { updated ->
+                        themeMode = updated
+                        AppPreferences.saveTheme(context, updated)
+                    },
+                    onLanguageChange = { updated ->
+                        language = updated
+                        AppPreferences.saveLanguage(context, updated)
+                    },
+                )
             }
         }
     }
 }
 
 @Composable
-private fun Phase8InteractiveScreen(modifier: Modifier = Modifier) {
+private fun Phase8InteractiveScreen(
+    themeMode: AppThemeMode,
+    language: AppLanguage,
+    onThemeModeChange: (AppThemeMode) -> Unit,
+    onLanguageChange: (AppLanguage) -> Unit,
+    modifier: Modifier = Modifier,
+) {
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
     var selectedBitmap by remember { mutableStateOf<Bitmap?>(null) }
     var pendingCameraUri by remember { mutableStateOf<Uri?>(null) }
+    var selectedDestination by remember {
+        mutableStateOf(AppDestination.Capture)
+    }
+    var historyItems by remember {
+        mutableStateOf(CaptionHistoryStore.load(context))
+    }
     var uiState by remember {
         mutableStateOf<CaptionUiState>(CaptionUiState.LoadingModel)
     }
@@ -91,10 +128,22 @@ private fun Phase8InteractiveScreen(modifier: Modifier = Modifier) {
                     context.loadBitmapFromUri(uri)
                 }
                 selectedBitmap = bitmap
-                uiState = CaptionUiState.Success(
-                    context.captionRealImage(
+                val presentation = context.captionRealImage(
+                    bitmap = bitmap,
+                    source = source,
+                )
+                val storedItem = withContext(Dispatchers.IO) {
+                    CaptionHistoryStore.add(
+                        context = context,
+                        result = presentation,
                         bitmap = bitmap,
-                        source = source,
+                    )
+                }
+                historyItems = CaptionHistoryStore.load(context)
+                uiState = CaptionUiState.Success(
+                    presentation.copy(
+                        historyId = storedItem.id,
+                        favorite = storedItem.favorite,
                     ),
                 )
             } catch (error: Throwable) {
@@ -127,10 +176,17 @@ private fun Phase8InteractiveScreen(modifier: Modifier = Modifier) {
         }
     }
 
-    CaptionAppScreen(
+    VisionCaptionApp(
         modifier = modifier,
+        selectedDestination = selectedDestination,
+        onDestinationChange = { selectedDestination = it },
         uiState = uiState,
         selectedBitmap = selectedBitmap,
+        historyItems = historyItems,
+        themeMode = themeMode,
+        language = language,
+        onThemeModeChange = onThemeModeChange,
+        onLanguageChange = onLanguageChange,
         onChooseGallery = {
             galleryLauncher.launch("image/*")
         },
@@ -158,10 +214,68 @@ private fun Phase8InteractiveScreen(modifier: Modifier = Modifier) {
                 )
             }
         },
+        onClearCurrentImage = {
+            selectedBitmap = null
+            uiState = CaptionUiState.Ready(
+                Phase8CaptionEngine.modelLoadMs,
+            )
+        },
         onDismissError = {
             uiState = CaptionUiState.Ready(
                 Phase8CaptionEngine.modelLoadMs,
             )
+        },
+        onToggleCurrentFavorite = { historyId ->
+            historyItems = CaptionHistoryStore.toggleFavorite(
+                context,
+                historyId,
+            )
+            val favorite = historyItems
+                .firstOrNull { it.id == historyId }
+                ?.favorite ?: false
+            val current = uiState
+            if (current is CaptionUiState.Success) {
+                uiState = current.copy(
+                    result = current.result.copy(favorite = favorite),
+                )
+            }
+        },
+        onToggleHistoryFavorite = { historyId ->
+            historyItems = CaptionHistoryStore.toggleFavorite(
+                context,
+                historyId,
+            )
+        },
+        onDeleteHistoryItem = { historyId ->
+            historyItems = CaptionHistoryStore.delete(
+                context,
+                historyId,
+            )
+            val current = uiState
+            if (
+                current is CaptionUiState.Success &&
+                current.result.historyId == historyId
+            ) {
+                uiState = current.copy(
+                    result = current.result.copy(
+                        historyId = null,
+                        favorite = false,
+                    ),
+                )
+            }
+        },
+        onClearHistory = {
+            CaptionHistoryStore.clear(context)
+            historyItems = emptyList()
+            val current = uiState
+            if (current is CaptionUiState.Success) {
+                uiState = current.copy(
+                    result = current.result.copy(
+                        historyId = null,
+                        favorite = false,
+                    ),
+                )
+            }
         },
     )
 }
@@ -188,6 +302,8 @@ private suspend fun Context.captionRealImage(
         }
 
         CaptionPresentation(
+            historyId = null,
+            favorite = false,
             source = source,
             sourceWidth = bitmap.width,
             sourceHeight = bitmap.height,
