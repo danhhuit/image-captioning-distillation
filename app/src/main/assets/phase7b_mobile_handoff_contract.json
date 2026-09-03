@@ -1,0 +1,83 @@
+{
+  "created_at": "2026-09-02T16:18:44.957374+00:00",
+  "decoder": {
+    "inputs": {
+      "decoder_attention_mask": "[batch,31] int64",
+      "decoder_input_ids": "[batch,31] int64",
+      "visual_memory": "[batch,1,256] float32"
+    },
+    "output": "[batch,31,12293] float32",
+    "path": "baseline_decoder_fp32.onnx",
+    "sha256": "0b5c6fec9158a9c00847a554936faeeafcf2560ee75d9caf0bacba95cdea8adb",
+    "size_bytes": 21423126
+  },
+  "decoding": {
+    "beam_search_location": "outside_onnx_graph",
+    "beam_size": 3,
+    "decoder_sequence_length": 31,
+    "forbidden_token_ids": [
+      0,
+      1,
+      3
+    ],
+    "length_penalty": 0.7,
+    "maximum_new_tokens": 31,
+    "method": "beam3",
+    "minimum_words": 2
+  },
+  "encoder": {
+    "input": "[batch,3,224,224] float32",
+    "output": "[batch,1,256] float32",
+    "path": "baseline_encoder_fp32.onnx",
+    "sha256": "59fbd6d24f0c82ceec27cf69ed05cda47fcb39d568b68a4a67f06dee080f19e3",
+    "size_bytes": 13146210
+  },
+  "handoff_target": "phase8_android",
+  "int8_candidate_accepted": false,
+  "int8_rejection_reasons": [
+    "Stage A selective PTQ: best candidate c12_keep_fp32_g01_early_01_02 đạt CIDEr 45.567, retention 78.40%, thấp hơn gate 98%.",
+    "Stage B QAT fake-quant simulation đạt Golden gate, nhưng canonical MinMax conversion không tái tạo observer-aligned behavior.",
+    "Fixed-observer QDQ raw và packed graph khớp nhau, nhưng ONNX semantic/deployment fidelity không đạt.",
+    "Fixed-observer Golden mean/min cosine so với Baseline là 0.717867/0.415516; không vượt các gate đã đăng ký.",
+    "Không chạy Full Validation cho candidate đã thất bại Golden gate; Test Set không được sử dụng."
+  ],
+  "int8_requirement_satisfied": false,
+  "model": "baseline",
+  "phase": "phase7b_int8_rescue",
+  "phase7b_status": "completed_with_int8_rejection",
+  "precision": "fp32",
+  "preprocessing": {
+    "antialias": true,
+    "center_crop": 224,
+    "image_mode": "RGB",
+    "normalization_mean": [
+      0.485,
+      0.456,
+      0.406
+    ],
+    "normalization_std": [
+      0.229,
+      0.224,
+      0.225
+    ],
+    "random_augmentation": false,
+    "resize": 224,
+    "resize_interpolation": "bicubic"
+  },
+  "recommended_next_phase": "phase8_android_fp32_baseline",
+  "selected_candidate": "fp32_reference",
+  "selection_split": "validation",
+  "status": "locked",
+  "test_used_for_selection": false,
+  "vocabulary": {
+    "path": "vocabulary.json",
+    "sha256": "74561e6e00e59a4642ad20b4e69aed9c754f513b5714ff3a448522947ea30be2",
+    "size": 12293,
+    "special_token_ids": {
+      "bos": 1,
+      "eos": 2,
+      "pad": 0,
+      "unk": 3
+    }
+  }
+}
