@@ -89,6 +89,7 @@ internal sealed interface CaptionUiState {
 internal data class CaptionPresentation(
     val historyId: String?,
     val favorite: Boolean,
+    val modelLabel: String,
     val source: ImageInputSource,
     val sourceWidth: Int,
     val sourceHeight: Int,
@@ -682,11 +683,17 @@ private fun TechnicalDetails(result: CaptionPresentation) {
             style = MaterialTheme.typography.titleSmall,
             fontWeight = FontWeight.Bold,
         )
+        val visualMemoryShape = if (result.modelLabel == "V1 FP32") {
+            "[1, 1, 256]"
+        } else {
+            "[1, 49, 256]"
+        }
         val details = """
+            Mô hình: ${result.modelLabel}
             Nguồn: ${result.source.label}
             Ảnh: ${result.sourceWidth} × ${result.sourceHeight}
             Tensor: [1, 3, 224, 224]
-            Visual memory: [1, 1, 256]
+            Visual memory: $visualMemoryShape
             Token IDs: ${result.tokenIds}
             EOS position: ${result.eosPosition}
             Raw score: ${"%.6f".format(result.rawScore)}

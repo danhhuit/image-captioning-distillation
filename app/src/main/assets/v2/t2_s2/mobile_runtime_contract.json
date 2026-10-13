@@ -1,0 +1,92 @@
+{
+  "schema_version": "phase7i_pair_mobile_runtime_contract_v1",
+  "created_at_utc": "2026-10-09T13:41:39.193482+00:00",
+  "pair": "T2-S2",
+  "student_id": "S2",
+  "seed": 2026,
+  "strategy": "encoder_decoder_dynamic_int8_linear",
+  "runtime": {
+    "name": "onnxruntime-android",
+    "version": "1.29.0",
+    "opset": 17,
+    "cpu_threads_for_validation": 1
+  },
+  "artifacts": {
+    "encoder.onnx": {
+      "relative_path": "models/t2_s2/encoder.onnx",
+      "size_bytes": 11434113,
+      "sha256": "c49e2f29b051ae2db294d4ba358de2df45104828c3058276a29839ab0e04a5c5"
+    },
+    "decoder.onnx": {
+      "relative_path": "models/t2_s2/decoder.onnx",
+      "size_bytes": 15463940,
+      "sha256": "e46e47ec3ee8087413aa81dcf2a99379f0f3485193e4a660d76d2cca62ecb7c9"
+    }
+  },
+  "preprocessing_contract": "models/t2_s2/preprocessing_contract.json",
+  "shared_vocabulary": "shared/word_vocabulary_minfreq5.json",
+  "tokenizer_contract": "shared/tokenizer_contract.json",
+  "sequence_encoding_contract": "shared/sequence_encoding_contract.json",
+  "tensor_contract": {
+    "image": [
+      1,
+      3,
+      224,
+      224
+    ],
+    "visual_memory": [
+      1,
+      49,
+      256
+    ],
+    "decoder_input_ids": [
+      1,
+      31
+    ],
+    "decoder_attention_mask": [
+      1,
+      31
+    ],
+    "logits": [
+      1,
+      31,
+      10080
+    ]
+  },
+  "tensor_names": {
+    "encoder_inputs": [
+      "image"
+    ],
+    "encoder_outputs": [
+      "visual_memory"
+    ],
+    "decoder_inputs": [
+      "decoder_input_ids",
+      "visual_memory",
+      "decoder_attention_mask"
+    ],
+    "decoder_outputs": [
+      "logits"
+    ]
+  },
+  "special_token_ids": {
+    "pad": 0,
+    "bos": 1,
+    "eos": 2,
+    "unk": 3
+  },
+  "decoding": {
+    "beam_size": 3,
+    "length_penalty": 0.7,
+    "maximum_steps": 31
+  },
+  "validation_quality": {
+    "CIDEr-D": 1.0206967277666594,
+    "BLEU-4": 0.323713356763339,
+    "CE": 2.310971689034545,
+    "quality_gate_passed": true
+  },
+  "physical_android_benchmark_performed": false,
+  "test_set_status": "sealed",
+  "test_set_used": false
+}

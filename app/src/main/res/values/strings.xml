@@ -1,3 +1,7 @@
 <resources>
     <string name="app_name">Vision Caption</string>
+    <!-- Replace with the Web OAuth 2.0 client ID from Google Cloud/Firebase. -->
+    <string name="google_web_client_id">141025559032-b9bqiu0k4u1fg9987173hlrfhonp5shv.apps.googleusercontent.com</string>
+    <!-- Android emulator reaches the development API on the host via 10.0.2.2. -->
+    <string name="central_api_base_url">http://10.0.2.2:8000</string>
 </resources>

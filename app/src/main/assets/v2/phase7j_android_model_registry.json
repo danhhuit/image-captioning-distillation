@@ -1,0 +1,97 @@
+{
+  "schema_version": "phase7j_android_model_registry_v1",
+  "created_at_utc": "2026-10-10T01:41:25.347113+00:00",
+  "runtime": "onnxruntime-android:1.29.0",
+  "default_mode": "V1_FP32_FALLBACK",
+  "default_v2_research_pair": "T1-S1",
+  "v1_fallback_required": true,
+  "v2_vocabulary": {
+    "asset_path": "assets/v2_word_vocabulary_minfreq5.json",
+    "size": 10080,
+    "field": "id_to_token",
+    "special_token_ids": {
+      "pad": 0,
+      "bos": 1,
+      "eos": 2,
+      "unk": 3
+    }
+  },
+  "pairs": [
+    {
+      "pair": "T1-S1",
+      "student_id": "S1",
+      "seed": 123,
+      "strategy": "encoder_decoder_dynamic_int8_linear",
+      "encoder": {
+        "asset_path": "assets/t1_s1/encoder_int8.onnx",
+        "size_bytes": 12482289,
+        "sha256": "16390358c41161a54e7af0598ff87336d22bcdb3ad837f7d6917d75edcd217eb"
+      },
+      "decoder": {
+        "asset_path": "assets/t1_s1/decoder_int8.onnx",
+        "size_bytes": 15463940,
+        "sha256": "0184a94a7ae7dfc5560dfba9aebae9222337e34de4d242f2b3b5c912adcec261"
+      },
+      "preprocessing_contract": "contracts/t1_s1/preprocessing.json",
+      "runtime_contract": "contracts/t1_s1/mobile_runtime_contract.json",
+      "validation": {
+        "CIDEr-D": 1.1092022261075705,
+        "BLEU-4": 0.3464033873013923,
+        "CE": 2.354636709833465,
+        "package_reduction_fraction": 0.23013484706032017
+      }
+    },
+    {
+      "pair": "T2-S2",
+      "student_id": "S2",
+      "seed": 2026,
+      "strategy": "encoder_decoder_dynamic_int8_linear",
+      "encoder": {
+        "asset_path": "assets/t2_s2/encoder_int8.onnx",
+        "size_bytes": 11434113,
+        "sha256": "c49e2f29b051ae2db294d4ba358de2df45104828c3058276a29839ab0e04a5c5"
+      },
+      "decoder": {
+        "asset_path": "assets/t2_s2/decoder_int8.onnx",
+        "size_bytes": 15463940,
+        "sha256": "e46e47ec3ee8087413aa81dcf2a99379f0f3485193e4a660d76d2cca62ecb7c9"
+      },
+      "preprocessing_contract": "contracts/t2_s2/preprocessing.json",
+      "runtime_contract": "contracts/t2_s2/mobile_runtime_contract.json",
+      "validation": {
+        "CIDEr-D": 1.0206967277666594,
+        "BLEU-4": 0.323713356763339,
+        "CE": 2.310971689034545,
+        "package_reduction_fraction": 0.3830937847658409
+      }
+    },
+    {
+      "pair": "T3-S3",
+      "student_id": "S3",
+      "seed": 42,
+      "strategy": "decoder_dynamic_int8_linear",
+      "encoder": {
+        "asset_path": "assets/t3_s3/encoder_int8.onnx",
+        "size_bytes": 22847969,
+        "sha256": "305860fd6c25b5b8c095aa538544a9011395d46dcc653b1d72717844e183edf0"
+      },
+      "decoder": {
+        "asset_path": "assets/t3_s3/decoder_int8.onnx",
+        "size_bytes": 15463940,
+        "sha256": "72c0b16086cfb53210d35dfd48b12c8b4bd82d8223115805f41cef382f0e5304"
+      },
+      "preprocessing_contract": "contracts/t3_s3/preprocessing.json",
+      "runtime_contract": "contracts/t3_s3/mobile_runtime_contract.json",
+      "validation": {
+        "CIDEr-D": 1.0940243158427037,
+        "BLEU-4": 0.34342086890197177,
+        "CE": 2.1172064699553945,
+        "package_reduction_fraction": 0.1658590243100897
+      }
+    }
+  ],
+  "direct_asset_swap_allowed": false,
+  "physical_android_benchmark_performed": false,
+  "test_set_status": "sealed",
+  "test_set_used": false
+}

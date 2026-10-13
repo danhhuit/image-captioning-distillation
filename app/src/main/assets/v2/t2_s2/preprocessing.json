@@ -1,0 +1,71 @@
+{
+  "schema_version": "1.0.0",
+  "created_at_utc": "2026-09-07T15:44:58.777267+00:00",
+  "student_id": "S2",
+  "student_name": "MobileViT-S",
+  "library": "timm",
+  "model_name": "mobilevit_s.cvnets_in1k",
+  "pretrained_identifier": "mobilevit_s.cvnets_in1k",
+  "input_size": 224,
+  "pretrained_mean": [
+    0.0,
+    0.0,
+    0.0
+  ],
+  "pretrained_std": [
+    1.0,
+    1.0,
+    1.0
+  ],
+  "selection_rationale": "hybrid convolution-transformer mobile baseline",
+  "shared_geometry": {
+    "input_size": [
+      3,
+      224,
+      224
+    ],
+    "color_mode": "RGB",
+    "interpolation": "bicubic",
+    "train": {
+      "random_resized_crop_scale": [
+        0.8,
+        1.0
+      ],
+      "random_resized_crop_ratio": [
+        0.75,
+        1.3333333333333333
+      ],
+      "horizontal_flip_probability": 0.5
+    },
+    "validation": {
+      "resize_shorter": 256,
+      "center_crop": 224,
+      "random_operation": false
+    }
+  },
+  "normalization": {
+    "mean": [
+      0.0,
+      0.0,
+      0.0
+    ],
+    "std": [
+      1.0,
+      1.0,
+      1.0
+    ],
+    "source": "pretrained model configuration"
+  },
+  "tensor": {
+    "dtype": "float32",
+    "layout": "CHW",
+    "batch_layout": "NCHW"
+  },
+  "policy": {
+    "validation_deterministic": true,
+    "test_transform_if_unsealed": "identical_to_validation",
+    "test_images_read": false,
+    "caption_read": false,
+    "training_started": false
+  }
+}

@@ -1,0 +1,44 @@
+{
+  "schema_version": "1.0.0",
+  "created_at_utc": "2026-09-07T09:56:43.193977+00:00",
+  "vocabulary": {
+    "path": "/kaggle/working/klcn_v2/phase1_mscoco/vocabulary/word_vocabulary_minfreq5.json",
+    "sha256": "1c6c7e6146d2700932c82be6f076d93153c757c10a1844076abaea9c11496f97",
+    "size": 10080
+  },
+  "tokenizer_contract": {
+    "path": "/kaggle/working/klcn_v2/phase1_mscoco/vocabulary/tokenizer_contract.json",
+    "sha256": "81f44b410095a6b5727b3bdca993397ecac205f6b6a8118bdd1d5d68faa3f241"
+  },
+  "special_token_ids": {
+    "pad": 0,
+    "bos": 1,
+    "eos": 2,
+    "unk": 3
+  },
+  "length_policy": {
+    "maximum_lexical_tokens": 30,
+    "maximum_full_sequence_tokens": 32,
+    "maximum_decoder_time_steps": 31,
+    "truncation_side": "right",
+    "eos_after_truncation": true
+  },
+  "teacher_forcing": {
+    "full_sequence": "[BOS] + lexical_ids + [EOS]",
+    "decoder_input": "full_sequence[:-1]",
+    "decoder_label": "full_sequence[1:]"
+  },
+  "padding": {
+    "strategy": "dynamic_per_batch",
+    "pad_id": 0,
+    "attention_mask_real_token": 1,
+    "attention_mask_padding": 0,
+    "loss_ignore_index": 0
+  },
+  "data_policy": {
+    "training_source": "Karpathy train + restval",
+    "validation_source": "Karpathy val",
+    "test_read": false,
+    "test_artifact_written": false
+  }
+}

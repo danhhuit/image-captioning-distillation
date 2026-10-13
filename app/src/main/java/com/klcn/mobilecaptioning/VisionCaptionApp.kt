@@ -2,6 +2,7 @@ package com.klcn.mobilecaptioning
 
 import android.content.Intent
 import android.graphics.Bitmap
+import android.widget.Toast
 import android.graphics.BitmapFactory
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.Image
@@ -64,6 +65,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.zIndex
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
@@ -90,6 +92,9 @@ internal enum class AppDestination {
     Capture,
     History,
     Favorites,
+    ModelInsights,
+    Account,
+    Admin,
     Settings,
 }
 
@@ -119,6 +124,7 @@ private data class VisionStrings(
     val loadingModel: String,
     val gallery: String,
     val camera: String,
+    val generateCaption: String,
     val removePhoto: String,
     val choosePhoto: String,
     val choosePhotoHint: String,
@@ -154,7 +160,6 @@ private data class VisionStrings(
     val languageHint: String,
     val vietnamese: String,
     val english: String,
-    val modelLanguageNotice: String,
     val privacy: String,
     val privacyBody: String,
     val about: String,
@@ -187,12 +192,13 @@ private fun visionStrings(language: AppLanguage): VisionStrings =
             capture = "Chụp",
             history = "Lịch sử",
             favorites = "Yêu thích",
-            settings = "Cài đặt",
+            settings = "Thêm",
             appTagline = "Mô tả hình ảnh trực tiếp trên thiết bị",
             modelReady = "Mô hình sẵn sàng",
             loadingModel = "Đang khởi tạo mô hình trên thiết bị…",
             gallery = "Thư viện",
             camera = "Máy ảnh",
+            generateCaption = "Chú thích ảnh",
             removePhoto = "Xóa ảnh hiện tại",
             choosePhoto = "Chọn một khoảnh khắc",
             choosePhotoHint = "Ảnh được xử lý hoàn toàn trên thiết bị",
@@ -228,12 +234,11 @@ private fun visionStrings(language: AppLanguage): VisionStrings =
             languageHint = "Ngôn ngữ của giao diện ứng dụng",
             vietnamese = "Tiếng Việt",
             english = "English",
-            modelLanguageNotice = "Mô hình hiện sinh mô tả bằng tiếng Anh; tùy chọn này chỉ đổi ngôn ngữ giao diện.",
             privacy = "Quyền riêng tư",
             privacyBody = "Ảnh và mô tả được xử lý, lưu cục bộ. Ứng dụng không cần gửi ảnh lên máy chủ.",
             about = "Giới thiệu",
-            aboutBody = "Image Captioning chạy ngoại tuyến với Visual Encoder, Transformer Decoder và Beam Search.",
-            version = "Phiên bản 1.3.0 · Baseline FP32",
+            aboutBody = "Vision Caption biến hình ảnh thành mô tả rõ ràng ngay trên thiết bị. Nền tảng AI ngoại tuyến bảo vệ dữ liệu riêng tư, cho phép lựa chọn nhiều mô hình tối ưu, theo dõi hiệu năng minh bạch và lưu lại những khoảnh khắc quan trọng mà không phụ thuộc kết nối mạng.",
+            version = "Phiên bản 1.6.0 · PostgreSQL trung tâm · AI ngoại tuyến",
             dismiss = "Đóng",
             words = "từ",
             repeatable = "Kết quả tái lập",
@@ -259,12 +264,13 @@ private fun visionStrings(language: AppLanguage): VisionStrings =
             capture = "Capture",
             history = "History",
             favorites = "Favorites",
-            settings = "Settings",
+            settings = "More",
             appTagline = "On-device image descriptions",
             modelReady = "Model ready",
             loadingModel = "Starting the on-device model…",
             gallery = "Gallery",
             camera = "Camera",
+            generateCaption = "Generate caption",
             removePhoto = "Remove current image",
             choosePhoto = "Choose a moment",
             choosePhotoHint = "Your image stays and runs on this device",
@@ -300,12 +306,11 @@ private fun visionStrings(language: AppLanguage): VisionStrings =
             languageHint = "Language used by the application interface",
             vietnamese = "Tiếng Việt",
             english = "English",
-            modelLanguageNotice = "The current model generates English captions; this setting changes the interface language only.",
             privacy = "Privacy",
             privacyBody = "Images and captions are processed and stored locally. No image upload is required.",
             about = "About",
-            aboutBody = "Offline Image Captioning powered by a Visual Encoder, Transformer Decoder and Beam Search.",
-            version = "Version 1.3.0 · Baseline FP32",
+            aboutBody = "Vision Caption turns images into clear, useful descriptions directly on your device. Private offline AI, transparent performance insights, multiple optimized models and personal history deliver dependable visual understanding without relying on the cloud.",
+            version = "Version 1.6.0 · Central PostgreSQL · Offline AI",
             dismiss = "Dismiss",
             words = "words",
             repeatable = "Repeatable result",
@@ -337,10 +342,16 @@ internal fun VisionCaptionApp(
     historyItems: List<CaptionHistoryItem>,
     themeMode: AppThemeMode,
     language: AppLanguage,
+    selectedModel: CaptionModelMode,
+    authStore: AuthStore,
+    authSession: AuthSession,
+    onAuthSessionChange: (AuthSession) -> Unit,
     onThemeModeChange: (AppThemeMode) -> Unit,
     onLanguageChange: (AppLanguage) -> Unit,
+    onModelSelected: (CaptionModelMode) -> Unit,
     onChooseGallery: () -> Unit,
     onOpenCamera: () -> Unit,
+    onGenerateCaption: () -> Unit,
     onClearCurrentImage: () -> Unit,
     onDismissError: () -> Unit,
     onToggleCurrentFavorite: (String) -> Unit,
@@ -349,6 +360,7 @@ internal fun VisionCaptionApp(
     onClearHistory: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val context = LocalContext.current
     val labels = visionStrings(language)
     val drawerState = rememberDrawerState(DrawerValue.Closed)
     val coroutineScope = rememberCoroutineScope()
@@ -366,7 +378,19 @@ internal fun VisionCaptionApp(
             VisionDrawer(
                 labels = labels,
                 selected = selectedDestination,
+                authSession = authSession,
                 onDestinationSelected = selectDestination,
+                onLogout = {
+                    coroutineScope.launch {
+                        onAuthSessionChange(authStore.logout())
+                        Toast.makeText(
+                            context,
+                            if (language == AppLanguage.Vietnamese) "Đã đăng xuất." else "Signed out.",
+                            Toast.LENGTH_SHORT,
+                        ).show()
+                        selectDestination(AppDestination.Capture)
+                    }
+                },
             )
         },
     ) {
@@ -392,51 +416,222 @@ internal fun VisionCaptionApp(
                         labels = labels,
                         uiState = uiState,
                         selectedBitmap = selectedBitmap,
+                        selectedModel = selectedModel,
                         onOpenMenu = openDrawer,
                         onChooseGallery = onChooseGallery,
                         onOpenCamera = onOpenCamera,
+                        onGenerateCaption = onGenerateCaption,
                         onClearCurrentImage = onClearCurrentImage,
                         onDismissError = onDismissError,
                         onToggleFavorite = onToggleCurrentFavorite,
                     )
 
-                    AppDestination.History -> HistoryDestination(
-                        labels = labels,
-                        items = historyItems,
-                        favoritesOnly = false,
-                        onOpenMenu = openDrawer,
-                        onToggleFavorite = onToggleHistoryFavorite,
-                        onDelete = onDeleteHistoryItem,
-                        onCapture = {
-                            onDestinationChange(AppDestination.Capture)
-                        },
-                    )
+                    AppDestination.History -> {
+                        if (
+                            authSession.can(
+                                AppResource.HISTORY,
+                                PermissionAction.READ,
+                            )
+                        ) {
+                            HistoryDestination(
+                                labels = labels,
+                                items = historyItems,
+                                favoritesOnly = false,
+                                onOpenMenu = openDrawer,
+                                onToggleFavorite = { id ->
+                                    if (
+                                        authSession.can(
+                                            AppResource.FAVORITES,
+                                            PermissionAction.UPDATE,
+                                        )
+                                    ) {
+                                        onToggleHistoryFavorite(id)
+                                    }
+                                },
+                                onDelete = { id ->
+                                    if (
+                                        authSession.can(
+                                            AppResource.HISTORY,
+                                            PermissionAction.DELETE,
+                                        )
+                                    ) {
+                                        onDeleteHistoryItem(id)
+                                    }
+                                },
+                                onCapture = {
+                                    onDestinationChange(AppDestination.Capture)
+                                },
+                                onClearHistory = if (
+                                    authSession.can(
+                                        AppResource.HISTORY,
+                                        PermissionAction.DELETE,
+                                    )
+                                ) {
+                                    onClearHistory
+                                } else {
+                                    null
+                                },
+                            )
+                        } else {
+                            AccessRequiredDestination(
+                                title = labels.history,
+                                onOpenMenu = openDrawer,
+                                onLogin = {
+                                    onDestinationChange(AppDestination.Account)
+                                },
+                            )
+                        }
+                    }
 
-                    AppDestination.Favorites -> HistoryDestination(
-                        labels = labels,
-                        items = historyItems.filter(
-                            CaptionHistoryItem::favorite,
-                        ),
-                        favoritesOnly = true,
-                        onOpenMenu = openDrawer,
-                        onToggleFavorite = onToggleHistoryFavorite,
-                        onDelete = onDeleteHistoryItem,
-                        onCapture = {
-                            onDestinationChange(AppDestination.Capture)
-                        },
-                    )
+                    AppDestination.Favorites -> {
+                        if (
+                            authSession.can(
+                                AppResource.FAVORITES,
+                                PermissionAction.READ,
+                            )
+                        ) {
+                            HistoryDestination(
+                                labels = labels,
+                                items = historyItems.filter(
+                                    CaptionHistoryItem::favorite,
+                                ),
+                                favoritesOnly = true,
+                                onOpenMenu = openDrawer,
+                                onToggleFavorite = { id ->
+                                    if (
+                                        authSession.can(
+                                            AppResource.FAVORITES,
+                                            PermissionAction.UPDATE,
+                                        )
+                                    ) {
+                                        onToggleHistoryFavorite(id)
+                                    }
+                                },
+                                onDelete = { id ->
+                                    if (
+                                        authSession.can(
+                                            AppResource.HISTORY,
+                                            PermissionAction.DELETE,
+                                        )
+                                    ) {
+                                        onDeleteHistoryItem(id)
+                                    }
+                                },
+                                onCapture = {
+                                    onDestinationChange(AppDestination.Capture)
+                                },
+                                onClearHistory = null,
+                            )
+                        } else {
+                            AccessRequiredDestination(
+                                title = labels.favorites,
+                                onOpenMenu = openDrawer,
+                                onLogin = {
+                                    onDestinationChange(AppDestination.Account)
+                                },
+                            )
+                        }
+                    }
+
+                    AppDestination.ModelInsights ->
+                        ModelInsightsDestination(
+                            selectedModel = selectedModel,
+                            modelSelectionEnabled = (
+                                uiState !is CaptionUiState.LoadingModel &&
+                                    uiState !is CaptionUiState.Processing
+                                ),
+                            onModelSelected = onModelSelected,
+                            latestLatencyMs = (
+                                uiState as? CaptionUiState.Success
+                                )?.result?.repeatedTotalMs
+                                ?: historyItems.firstOrNull()?.latencyMs,
+                            onOpenMenu = openDrawer,
+                        )
+
+                    AppDestination.Account ->
+                        if (authSession.isAuthenticated) {
+                            AuthenticatedAccountDestination(
+                                session = authSession,
+                                onOpenMenu = openDrawer,
+                                onLogout = {
+                                    coroutineScope.launch {
+                                        onAuthSessionChange(authStore.logout())
+                                        Toast.makeText(
+                                            context,
+                                            if (language == AppLanguage.Vietnamese) "Đã đăng xuất." else "Signed out.",
+                                            Toast.LENGTH_SHORT,
+                                        ).show()
+                                        onDestinationChange(AppDestination.Capture)
+                                    }
+                                },
+                                onOpenAdmin = {
+                                    onDestinationChange(AppDestination.Admin)
+                                },
+                            )
+                        } else {
+                            AuthDestination(
+                                store = authStore,
+                                language = language,
+                                onOpenMenu = openDrawer,
+                                onAuthenticated = { updated ->
+                                    onAuthSessionChange(updated)
+                                    onDestinationChange(AppDestination.Capture)
+                                },
+                                onContinueGuest = {
+                                    onAuthSessionChange(
+                                        authStore.continueAsGuest(),
+                                    )
+                                    onDestinationChange(AppDestination.Capture)
+                                },
+                            )
+                        }
+
+                    AppDestination.Admin ->
+                        AdminDestination(
+                            store = authStore,
+                            session = authSession,
+                            onOpenMenu = openDrawer,
+                        )
 
                     AppDestination.Settings -> SettingsDestination(
                         labels = labels,
-                        historyCount = historyItems.size,
                         themeMode = themeMode,
                         language = language,
+                        authSession = authSession,
                         onOpenMenu = openDrawer,
                         onThemeModeChange = onThemeModeChange,
                         onLanguageChange = onLanguageChange,
-                        onClearHistory = onClearHistory,
+                        onOpenAccount = {
+                            onDestinationChange(AppDestination.Account)
+                        },
+                        onOpenAdmin = {
+                            onDestinationChange(AppDestination.Admin)
+                        },
+                        onLogout = {
+                            coroutineScope.launch {
+                                onAuthSessionChange(authStore.logout())
+                                Toast.makeText(
+                                    context,
+                                    if (language == AppLanguage.Vietnamese) "Đã đăng xuất." else "Signed out.",
+                                    Toast.LENGTH_SHORT,
+                                ).show()
+                                onDestinationChange(AppDestination.Capture)
+                            }
+                        },
                     )
                 }
+                GlobalQuickControls(
+                    themeMode = themeMode,
+                    language = language,
+                    labels = labels,
+                    onThemeModeChange = onThemeModeChange,
+                    onLanguageChange = onLanguageChange,
+                    modifier = Modifier
+                        .align(Alignment.TopEnd)
+                        .statusBarsPadding()
+                        .padding(top = 22.dp, end = 16.dp)
+                        .zIndex(10f),
+                )
             }
         }
     }
@@ -446,7 +641,9 @@ internal fun VisionCaptionApp(
 private fun VisionDrawer(
     labels: VisionStrings,
     selected: AppDestination,
+    authSession: AuthSession,
     onDestinationSelected: (AppDestination) -> Unit,
+    onLogout: () -> Unit,
 ) {
     val entries = listOf(
         Triple(AppDestination.Capture, labels.capture, R.drawable.ic_capture),
@@ -456,8 +653,20 @@ private fun VisionDrawer(
             labels.favorites,
             R.drawable.ic_favorite_border,
         ),
-        Triple(AppDestination.Settings, labels.settings, R.drawable.ic_settings),
-    )
+        Triple(
+            AppDestination.ModelInsights,
+            "Mô hình",
+            R.drawable.ic_info,
+        ),
+        Triple(AppDestination.Settings, labels.settings, R.drawable.ic_more),
+    ).filter { (destination, _, _) ->
+        when (destination) {
+            AppDestination.History -> authSession.can(AppResource.HISTORY)
+            AppDestination.Favorites -> authSession.can(AppResource.FAVORITES)
+            AppDestination.ModelInsights -> authSession.can(AppResource.MODEL_INSIGHTS)
+            else -> true
+        }
+    }
     ModalDrawerSheet(
         modifier = Modifier.width(304.dp),
         drawerContainerColor = MaterialTheme.colorScheme.surface,
@@ -486,7 +695,7 @@ private fun VisionDrawer(
                         fontWeight = FontWeight.Bold,
                     )
                     Text(
-                        text = labels.guest,
+                        text = authSession.displayName,
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
@@ -495,17 +704,6 @@ private fun VisionDrawer(
             HorizontalDivider(
                 modifier = Modifier.padding(vertical = 8.dp),
                 color = MaterialTheme.colorScheme.outlineVariant,
-            )
-            NavigationDrawerItem(
-                label = { Text(labels.loginSoon) },
-                selected = false,
-                onClick = {},
-                icon = {
-                    Icon(
-                        painter = painterResource(R.drawable.ic_person),
-                        contentDescription = null,
-                    )
-                },
             )
             entries.forEach { (destination, label, icon) ->
                 NavigationDrawerItem(
@@ -522,14 +720,39 @@ private fun VisionDrawer(
                     },
                 )
             }
+            if (authSession.role == UserRole.SUPER_ADMIN) {
+                NavigationDrawerItem(
+                    label = { Text("Quản trị & phân quyền") },
+                    selected = selected == AppDestination.Admin,
+                    onClick = {
+                        onDestinationSelected(AppDestination.Admin)
+                    },
+                    icon = {
+                        Icon(
+                            painter = painterResource(R.drawable.ic_person),
+                            contentDescription = null,
+                        )
+                    },
+                )
+            }
             HorizontalDivider(
                 modifier = Modifier.padding(vertical = 8.dp),
                 color = MaterialTheme.colorScheme.outlineVariant,
             )
             NavigationDrawerItem(
-                label = { Text(labels.logoutSoon) },
+                label = {
+                    Text(
+                        if (authSession.isAuthenticated) {
+                            "Đăng xuất"
+                        } else {
+                            "Đang dùng chế độ Khách"
+                        },
+                    )
+                },
                 selected = false,
-                onClick = {},
+                onClick = {
+                    if (authSession.isAuthenticated) onLogout()
+                },
                 icon = {
                     Icon(
                         painter = painterResource(R.drawable.ic_logout),
@@ -551,11 +774,11 @@ private fun VisionNavigationBar(
         Triple(AppDestination.Capture, labels.capture, R.drawable.ic_capture),
         Triple(AppDestination.History, labels.history, R.drawable.ic_history),
         Triple(AppDestination.Favorites, labels.favorites, R.drawable.ic_favorite),
-        Triple(AppDestination.Settings, labels.settings, R.drawable.ic_settings),
+        Triple(AppDestination.Settings, labels.settings, R.drawable.ic_more),
     )
     NavigationBar(
-        containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.98f),
-        tonalElevation = 10.dp,
+        containerColor = MaterialTheme.colorScheme.surface,
+        tonalElevation = 0.dp,
     ) {
         entries.forEach { (destination, label, icon) ->
             NavigationBarItem(
@@ -590,9 +813,11 @@ private fun CaptureDestination(
     labels: VisionStrings,
     uiState: CaptionUiState,
     selectedBitmap: Bitmap?,
+    selectedModel: CaptionModelMode,
     onOpenMenu: () -> Unit,
     onChooseGallery: () -> Unit,
     onOpenCamera: () -> Unit,
+    onGenerateCaption: () -> Unit,
     onClearCurrentImage: () -> Unit,
     onDismissError: () -> Unit,
     onToggleFavorite: (String) -> Unit,
@@ -613,6 +838,9 @@ private fun CaptureDestination(
             VisionHeader(onOpenMenu)
         }
         item {
+            SelectedModelBanner(selectedModel)
+        }
+        item {
             CaptureCanvas(
                 labels = labels,
                 bitmap = selectedBitmap,
@@ -628,6 +856,22 @@ private fun CaptureDestination(
                 onChooseGallery = onChooseGallery,
                 onOpenCamera = onOpenCamera,
             )
+        }
+        if (selectedBitmap != null && uiState !is CaptionUiState.Success) {
+            item {
+                Button(
+                    onClick = onGenerateCaption,
+                    enabled = uiState !is CaptionUiState.LoadingModel &&
+                        uiState !is CaptionUiState.Processing,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(54.dp),
+                    shape = RoundedCornerShape(17.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = VisionBlue),
+                ) {
+                    Text(labels.generateCaption, fontWeight = FontWeight.Bold)
+                }
+            }
         }
         when (uiState) {
             is CaptionUiState.Success -> item {
@@ -647,6 +891,96 @@ private fun CaptureDestination(
             }
 
             else -> Unit
+        }
+    }
+}
+
+@Composable
+private fun GlobalQuickControls(
+    themeMode: AppThemeMode,
+    language: AppLanguage,
+    labels: VisionStrings,
+    onThemeModeChange: (AppThemeMode) -> Unit,
+    onLanguageChange: (AppLanguage) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Row(
+        modifier = modifier,
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(2.dp),
+    ) {
+        IconButton(
+            modifier = Modifier.size(48.dp),
+            onClick = {
+                onLanguageChange(
+                    if (language == AppLanguage.Vietnamese) AppLanguage.English
+                    else AppLanguage.Vietnamese,
+                )
+            },
+        ) {
+            Icon(
+                painter = painterResource(R.drawable.ic_language),
+                contentDescription = if (language == AppLanguage.Vietnamese) {
+                    "Switch to English"
+                } else {
+                    "Chuyển sang Tiếng Việt"
+                },
+            )
+        }
+        IconButton(
+            modifier = Modifier.size(48.dp),
+            onClick = {
+                onThemeModeChange(
+                    if (themeMode == AppThemeMode.Dark) AppThemeMode.Light
+                    else AppThemeMode.Dark,
+                )
+            },
+        ) {
+            Icon(
+                painter = painterResource(
+                    if (themeMode == AppThemeMode.Dark) R.drawable.ic_light_mode
+                    else R.drawable.ic_dark_mode,
+                ),
+                contentDescription = if (themeMode == AppThemeMode.Dark) labels.light else labels.dark,
+            )
+        }
+    }
+}
+
+@Composable
+private fun SelectedModelBanner(model: CaptionModelMode) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(18.dp),
+        color = MaterialTheme.colorScheme.secondaryContainer,
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = model.displayName,
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.Bold,
+                )
+                Text(
+                    text = if (model.isV2) {
+                        "${model.studentName} · ONNX Runtime INT8"
+                    } else {
+                        "Mô hình tham chiếu · ONNX FP32"
+                    },
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSecondaryContainer,
+                )
+            }
+            Text(
+                text = if (model.isV2) "V2" else "V1",
+                style = MaterialTheme.typography.labelLarge,
+                fontWeight = FontWeight.ExtraBold,
+                color = MaterialTheme.colorScheme.primary,
+            )
         }
     }
 }
@@ -686,7 +1020,7 @@ private fun VisionHeader(
             )
         }
         Spacer(Modifier.weight(1f))
-        Spacer(Modifier.size(48.dp))
+        Spacer(Modifier.size(104.dp))
     }
 }
 
@@ -1037,6 +1371,7 @@ private fun TechnicalGrid(
     labels: VisionStrings,
     result: CaptionPresentation,
 ) {
+    val contract = runtimeContractFor(result.modelLabel)
     val speedup = if (result.repeatedTotalMs > 0.0) {
         result.firstTotalMs / result.repeatedTotalMs
     } else {
@@ -1044,13 +1379,13 @@ private fun TechnicalGrid(
     }
     Column(verticalArrangement = Arrangement.spacedBy(9.dp)) {
         MetricSectionTitle("MODEL & RUNTIME")
-        TechnicalRow("Model", "Baseline FP32 fallback")
-        TechnicalRow("Runtime", "ONNX Runtime Android 1.29.0")
+        TechnicalRow("Model", contract.model)
+        TechnicalRow("Runtime", contract.runtime)
         TechnicalRow("Execution provider", "CPUExecutionProvider")
-        TechnicalRow("Deployment parameters", "8,480,816")
-        TechnicalRow("Encoder ONNX", "baseline_encoder_fp32.onnx")
-        TechnicalRow("Decoder ONNX", "baseline_decoder_fp32.onnx")
-        TechnicalRow("Vocabulary", "12,293 tokens")
+        TechnicalRow("Deployment parameters", contract.parameters)
+        TechnicalRow("Encoder ONNX", contract.encoderAsset)
+        TechnicalRow("Decoder ONNX", contract.decoderAsset)
+        TechnicalRow("Vocabulary", contract.vocabulary)
         TechnicalRow("Processing", "Offline · on-device")
 
         MetricSectionTitle("INPUT & PREPROCESSING")
@@ -1058,17 +1393,17 @@ private fun TechnicalGrid(
             "Source image",
             "${result.sourceWidth} × ${result.sourceHeight} · ${result.source.label}",
         )
-        TechnicalRow("Resize policy", "shortest side 224 · bicubic")
+        TechnicalRow("Resize policy", contract.resizePolicy)
         TechnicalRow("Center crop", "224 × 224")
-        TechnicalRow("Normalization", "ImageNet mean / std")
+        TechnicalRow("Normalization", contract.normalization)
         TechnicalRow("Tensor layout", "NCHW")
-        TechnicalRow("Encoder input", "float32 [1,3,224,224]")
-        TechnicalRow("Visual memory", "float32 [1,1,256]")
+        TechnicalRow("Encoder input", contract.encoderInput)
+        TechnicalRow("Visual memory", contract.visualMemory)
 
         MetricSectionTitle("DECODER & BEAM SEARCH")
         TechnicalRow("Decoder input IDs", "int64 [1,31]")
-        TechnicalRow("Attention mask", "int64 [1,31]")
-        TechnicalRow("Decoder logits", "float32 [1,31,12293]")
+        TechnicalRow("Attention mask", contract.attentionMask)
+        TechnicalRow("Decoder logits", contract.decoderLogits)
         TechnicalRow("Beam size", "3")
         TechnicalRow("Maximum new tokens", "31")
         TechnicalRow("Minimum words", "2")
@@ -1120,15 +1455,126 @@ private fun TechnicalGrid(
     }
 }
 
+private data class CaptionRuntimeContract(
+    val model: String,
+    val runtime: String,
+    val parameters: String,
+    val encoderAsset: String,
+    val decoderAsset: String,
+    val vocabulary: String,
+    val resizePolicy: String,
+    val normalization: String,
+    val encoderInput: String,
+    val visualMemory: String,
+    val attentionMask: String,
+    val decoderLogits: String,
+)
+
+private fun runtimeContractFor(modelLabel: String): CaptionRuntimeContract {
+    val mode = CaptionModelMode.selectableModes.firstOrNull { mode ->
+        mode.displayName == modelLabel
+    } ?: CaptionModelMode.V1_FALLBACK
+    if (!mode.isV2) {
+        return CaptionRuntimeContract(
+            model = "V1 FP32 fallback",
+            runtime = "ONNX Runtime Android 1.29.0 · FP32",
+            parameters = "8,480,816",
+            encoderAsset = "baseline_encoder_fp32.onnx",
+            decoderAsset = "baseline_decoder_fp32.onnx",
+            vocabulary = "12,293 tokens · index_to_word",
+            resizePolicy = "shortest side 224 · bicubic",
+            normalization = "ImageNet mean / std",
+            encoderInput = "student_images · float32 [1,3,224,224]",
+            visualMemory = "float32 [1,1,256]",
+            attentionMask = "int64 [3,31]",
+            decoderLogits = "float32 [3,31,12293]",
+        )
+    }
+
+    val parameters = when (mode) {
+        CaptionModelMode.T1_S1 -> "8,990,352"
+        CaptionModelMode.T2_S2 -> "10,874,112"
+        CaptionModelMode.T3_S3 -> "10,925,684"
+        CaptionModelMode.V1_FALLBACK -> error("V1 handled above")
+    }
+    val normalization = if (mode == CaptionModelMode.T2_S2) {
+        "mean 0 / std 1"
+    } else {
+        "ImageNet mean / std"
+    }
+    return CaptionRuntimeContract(
+        model = mode.displayName,
+        runtime = "ONNX Runtime Android 1.29.0 · INT8",
+        parameters = parameters,
+        encoderAsset = requireNotNull(mode.encoderAsset).removePrefix("v2/"),
+        decoderAsset = requireNotNull(mode.decoderAsset).removePrefix("v2/"),
+        vocabulary = "10,080 tokens · id_to_token",
+        resizePolicy = "shortest side 256 · bicubic",
+        normalization = normalization,
+        encoderInput = "image · float32 [1,3,224,224]",
+        visualMemory = "float32 [1,49,256]",
+        attentionMask = "bool [1,31]",
+        decoderLogits = "float32 [1,31,10080]",
+    )
+}
+
 @Composable
 private fun MetricSectionTitle(title: String) {
-    Text(
-        text = title,
-        style = MaterialTheme.typography.labelMedium,
-        fontWeight = FontWeight.Bold,
-        color = VisionCyan,
-        modifier = Modifier.padding(top = 7.dp),
-    )
+    var expanded by remember(title) { mutableStateOf(false) }
+    Column(modifier = Modifier.fillMaxWidth()) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.padding(top = 7.dp),
+        ) {
+            Text(
+                text = title,
+                style = MaterialTheme.typography.labelMedium,
+                fontWeight = FontWeight.Bold,
+                color = VisionCyan,
+            )
+            Spacer(Modifier.width(5.dp))
+            Surface(
+                modifier = Modifier
+                    .size(20.dp)
+                    .clickable { expanded = !expanded },
+                shape = CircleShape,
+                color = MaterialTheme.colorScheme.primaryContainer,
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    Text(
+                        text = "!",
+                        style = MaterialTheme.typography.labelSmall,
+                        fontWeight = FontWeight.ExtraBold,
+                        color = MaterialTheme.colorScheme.primary,
+                    )
+                }
+            }
+        }
+        AnimatedVisibility(expanded) {
+            Text(
+                text = metricExplanation(title),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(top = 5.dp, bottom = 3.dp),
+            )
+        }
+    }
+}
+
+private fun metricExplanation(title: String): String = when (title) {
+    "MODEL & RUNTIME" ->
+        "Mô hình, bộ thực thi, số tham số và các tệp ONNX đang trực tiếp tạo kết quả trên thiết bị."
+    "INPUT & PREPROCESSING" ->
+        "Kích thước ảnh gốc, phép đổi kích thước/cắt giữa, chuẩn hóa và hình dạng tensor đưa vào encoder."
+    "DECODER & BEAM SEARCH" ->
+        "Cấu hình sinh chuỗi: token đầu vào, attention mask, logits, beam size, giới hạn độ dài và token đặc biệt."
+    "CAPTION OUTPUT", "CAPTION" ->
+        "Thông tin đầu ra gồm số từ/token, vị trí EOS và điểm log-xác suất trước/sau chuẩn hóa độ dài."
+    "MODEL & TENSORS" ->
+        "Hình dạng và kiểu dữ liệu của tensor đi qua encoder, visual memory và decoder."
+    "LATENCY" ->
+        "Thời gian tính bằng mili-giây: tải mô hình, tiền xử lý, encoder, decoder và hai lượt suy luận; lượt 2 phản ánh phiên đã làm nóng."
+    else -> "Thông tin kỹ thuật dùng để kiểm chứng đầu ra và khả năng tái lập."
 }
 
 @Composable
@@ -1196,6 +1642,7 @@ private fun HistoryDestination(
     onToggleFavorite: (String) -> Unit,
     onDelete: (String) -> Unit,
     onCapture: () -> Unit,
+    onClearHistory: (() -> Unit)?,
 ) {
     var selectedFilter by remember(favoritesOnly) {
         mutableStateOf(HistoryDateFilter.All)
@@ -1203,6 +1650,7 @@ private fun HistoryDestination(
     var searchVisible by remember(favoritesOnly) { mutableStateOf(false) }
     var searchQuery by remember(favoritesOnly) { mutableStateOf("") }
     var currentPage by remember(favoritesOnly) { mutableStateOf(1) }
+    var showClearDialog by remember(favoritesOnly) { mutableStateOf(false) }
     val filteredItems = remember(items, selectedFilter, searchQuery) {
         val normalizedQuery = searchQuery.trim().lowercase()
         items.filter { item ->
@@ -1262,6 +1710,19 @@ private fun HistoryDestination(
                     if (!searchVisible) {
                         searchQuery = ""
                     }
+                },
+                trailingAction = if (!favoritesOnly && items.isNotEmpty() && onClearHistory != null) {
+                    {
+                        IconButton(onClick = { showClearDialog = true }) {
+                            Icon(
+                                painter = painterResource(R.drawable.ic_delete),
+                                contentDescription = labels.clearHistory,
+                                tint = MaterialTheme.colorScheme.error,
+                            )
+                        }
+                    }
+                } else {
+                    null
                 },
             )
         }
@@ -1365,6 +1826,29 @@ private fun HistoryDestination(
             }
         }
     }
+    if (showClearDialog && onClearHistory != null) {
+        AlertDialog(
+            onDismissRequest = { showClearDialog = false },
+            title = { Text(labels.clearConfirmTitle) },
+            text = { Text(labels.clearConfirmBody) },
+            dismissButton = {
+                OutlinedButton(onClick = { showClearDialog = false }) {
+                    Text(labels.cancel)
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        onClearHistory()
+                        showClearDialog = false
+                    },
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.error,
+                    ),
+                ) { Text(labels.clear) }
+            },
+        )
+    }
 }
 
 @Composable
@@ -1456,9 +1940,10 @@ private fun HistoryFilterRow(
 private fun ScreenTitle(
     title: String,
     subtitle: String,
-    count: Int,
+    count: Int? = null,
     onOpenMenu: () -> Unit,
     onSearch: (() -> Unit)? = null,
+    trailingAction: (@Composable () -> Unit)? = null,
 ) {
     Row(
         modifier = Modifier.fillMaxWidth(),
@@ -1477,22 +1962,26 @@ private fun ScreenTitle(
                 style = MaterialTheme.typography.headlineMedium,
                 fontWeight = FontWeight.Bold,
             )
-            Text(
-                text = subtitle,
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
+            if (subtitle.isNotBlank()) {
+                Text(
+                    text = subtitle,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
         }
-        Surface(
-            color = VisionBlue.copy(alpha = 0.14f),
-            shape = CircleShape,
-        ) {
-            Text(
-                text = count.toString(),
-                color = VisionCyan,
-                fontWeight = FontWeight.Bold,
-                modifier = Modifier.padding(horizontal = 13.dp, vertical = 8.dp),
-            )
+        if (count != null) {
+            Surface(
+                color = VisionBlue.copy(alpha = 0.14f),
+                shape = CircleShape,
+            ) {
+                Text(
+                    text = count.toString(),
+                    color = VisionCyan,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.padding(horizontal = 13.dp, vertical = 8.dp),
+                )
+            }
         }
         if (onSearch != null) {
             IconButton(onClick = onSearch) {
@@ -1502,6 +1991,9 @@ private fun ScreenTitle(
                 )
             }
         }
+        trailingAction?.invoke()
+        // Reserve the top-right slot for the global light/dark control.
+        Spacer(Modifier.size(104.dp))
     }
 }
 
@@ -1648,6 +2140,7 @@ private fun HistoryTechnicalGrid(
     modifier: Modifier = Modifier,
 ) {
     val hasDetailedAudit = item.tokenIds.isNotEmpty()
+    val contract = runtimeContractFor(item.modelLabel)
     Column(
         modifier = modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(7.dp),
@@ -1705,10 +2198,12 @@ private fun HistoryTechnicalGrid(
             )
         }
         MetricSectionTitle("MODEL & TENSORS")
-        TechnicalRow("Model", "Baseline FP32 · ORT Android")
-        TechnicalRow("Encoder input", "float32 [1,3,224,224]")
-        TechnicalRow("Visual memory", "float32 [1,1,256]")
-        TechnicalRow("Decoder logits", "float32 [1,31,12293]")
+        TechnicalRow("Model", contract.model)
+        TechnicalRow("Runtime", contract.runtime)
+        TechnicalRow("Encoder input", contract.encoderInput)
+        TechnicalRow("Visual memory", contract.visualMemory)
+        TechnicalRow("Attention mask", contract.attentionMask)
+        TechnicalRow("Decoder logits", contract.decoderLogits)
         TechnicalRow("Beam configuration", "3 · LP 0.7 · min 2")
         MetricSectionTitle("LATENCY")
         TechnicalRow(
@@ -1795,15 +2290,16 @@ private fun EmptyCollection(
 @Composable
 private fun SettingsDestination(
     labels: VisionStrings,
-    historyCount: Int,
     themeMode: AppThemeMode,
     language: AppLanguage,
+    authSession: AuthSession,
     onOpenMenu: () -> Unit,
     onThemeModeChange: (AppThemeMode) -> Unit,
     onLanguageChange: (AppLanguage) -> Unit,
-    onClearHistory: () -> Unit,
+    onOpenAccount: () -> Unit,
+    onOpenAdmin: () -> Unit,
+    onLogout: () -> Unit,
 ) {
-    var showClearDialog by remember { mutableStateOf(false) }
     LazyColumn(
         modifier = Modifier
             .fillMaxSize()
@@ -1819,10 +2315,65 @@ private fun SettingsDestination(
         item {
             ScreenTitle(
                 title = labels.settings,
-                subtitle = "Vision Caption",
-                count = historyCount,
+                subtitle = "",
+                count = null,
                 onOpenMenu = onOpenMenu,
             )
+        }
+        item {
+            SettingsCard(
+                icon = R.drawable.ic_person,
+                title = if (authSession.isAuthenticated) {
+                    authSession.displayName
+                } else if (language == AppLanguage.Vietnamese) {
+                    "Tài khoản"
+                } else {
+                    "Account"
+                },
+                hint = if (authSession.isAuthenticated) {
+                    "@${authSession.account?.username.orEmpty()} · ${authSession.account?.email.orEmpty()}"
+                } else if (language == AppLanguage.Vietnamese) {
+                    "Đăng nhập hoặc tạo tài khoản"
+                } else {
+                    "Sign in or create an account"
+                },
+            ) {
+                if (authSession.isAuthenticated) {
+                    if (authSession.role == UserRole.SUPER_ADMIN) {
+                        Button(
+                            onClick = onOpenAdmin,
+                            modifier = Modifier.fillMaxWidth(),
+                        ) {
+                            Text(
+                                if (language == AppLanguage.Vietnamese) {
+                                    "Quản trị người dùng"
+                                } else {
+                                    "User administration"
+                                },
+                            )
+                        }
+                    }
+                    OutlinedButton(
+                        onClick = onLogout,
+                        modifier = Modifier.fillMaxWidth(),
+                    ) {
+                        Text(if (language == AppLanguage.Vietnamese) "Đăng xuất" else "Sign out")
+                    }
+                } else {
+                    Button(
+                        onClick = onOpenAccount,
+                        modifier = Modifier.fillMaxWidth(),
+                    ) {
+                        Text(
+                            if (language == AppLanguage.Vietnamese) {
+                                "Đăng nhập / Đăng ký"
+                            } else {
+                                "Sign in / Register"
+                            },
+                        )
+                    }
+                }
+            }
         }
         item {
             SettingsCard(
@@ -1831,22 +2382,25 @@ private fun SettingsDestination(
                 hint = labels.appearanceHint,
             ) {
                 ChoiceRow {
-                    ThemeChoice(
-                        label = labels.system,
+                    IconChoice(
+                        icon = R.drawable.ic_system_mode,
+                        description = labels.system,
                         selected = themeMode == AppThemeMode.System,
                         onClick = {
                             onThemeModeChange(AppThemeMode.System)
                         },
                     )
-                    ThemeChoice(
-                        label = labels.light,
+                    IconChoice(
+                        icon = R.drawable.ic_light_mode,
+                        description = labels.light,
                         selected = themeMode == AppThemeMode.Light,
                         onClick = {
                             onThemeModeChange(AppThemeMode.Light)
                         },
                     )
-                    ThemeChoice(
-                        label = labels.dark,
+                    IconChoice(
+                        icon = R.drawable.ic_dark_mode,
+                        description = labels.dark,
                         selected = themeMode == AppThemeMode.Dark,
                         onClick = {
                             onThemeModeChange(AppThemeMode.Dark)
@@ -1862,26 +2416,23 @@ private fun SettingsDestination(
                 hint = labels.languageHint,
             ) {
                 ChoiceRow {
-                    ThemeChoice(
-                        label = labels.vietnamese,
+                    CompactTextChoice(
+                        label = "VI",
+                        description = labels.vietnamese,
                         selected = language == AppLanguage.Vietnamese,
                         onClick = {
                             onLanguageChange(AppLanguage.Vietnamese)
                         },
                     )
-                    ThemeChoice(
-                        label = labels.english,
+                    CompactTextChoice(
+                        label = "EN",
+                        description = labels.english,
                         selected = language == AppLanguage.English,
                         onClick = {
                             onLanguageChange(AppLanguage.English)
                         },
                     )
                 }
-                Text(
-                    text = labels.modelLanguageNotice,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
             }
         }
         item {
@@ -1892,58 +2443,8 @@ private fun SettingsDestination(
             )
         }
         item {
-            SettingsCard(
-                icon = R.drawable.ic_history,
-                title = labels.historyTitle,
-                hint = "$historyCount",
-            ) {
-                OutlinedButton(
-                    onClick = { showClearDialog = true },
-                    enabled = historyCount > 0,
-                    shape = RoundedCornerShape(15.dp),
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = ButtonDefaults.outlinedButtonColors(
-                        contentColor = MaterialTheme.colorScheme.error,
-                    ),
-                ) {
-                    Icon(
-                        painter = painterResource(R.drawable.ic_delete),
-                        contentDescription = null,
-                        modifier = Modifier.size(19.dp),
-                    )
-                    Spacer(Modifier.width(8.dp))
-                    Text(labels.clearHistory)
-                }
-            }
-        }
-        item {
             AboutVisionCard(labels)
         }
-    }
-    if (showClearDialog) {
-        AlertDialog(
-            onDismissRequest = { showClearDialog = false },
-            title = { Text(labels.clearConfirmTitle) },
-            text = { Text(labels.clearConfirmBody) },
-            dismissButton = {
-                OutlinedButton(onClick = { showClearDialog = false }) {
-                    Text(labels.cancel)
-                }
-            },
-            confirmButton = {
-                Button(
-                    onClick = {
-                        onClearHistory()
-                        showClearDialog = false
-                    },
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = MaterialTheme.colorScheme.error,
-                    ),
-                ) {
-                    Text(labels.clear)
-                }
-            },
-        )
     }
 }
 
@@ -2009,8 +2510,9 @@ private fun ChoiceRow(content: @Composable RowScope.() -> Unit) {
 }
 
 @Composable
-private fun RowScope.ThemeChoice(
-    label: String,
+private fun RowScope.IconChoice(
+    icon: Int,
+    description: String,
     selected: Boolean,
     onClick: () -> Unit,
 ) {
@@ -2030,7 +2532,11 @@ private fun RowScope.ThemeChoice(
             contentPadding = PaddingValues(horizontal = 10.dp),
             modifier = Modifier.weight(1f),
         ) {
-            Text(label, maxLines = 1, fontSize = 12.sp)
+            Icon(
+                painter = painterResource(icon),
+                contentDescription = description,
+                modifier = Modifier.size(20.dp),
+            )
         }
     } else {
         OutlinedButton(
@@ -2040,7 +2546,43 @@ private fun RowScope.ThemeChoice(
             contentPadding = PaddingValues(horizontal = 8.dp),
             modifier = Modifier.weight(1f),
         ) {
-            Text(label, maxLines = 1, fontSize = 12.sp)
+            Icon(
+                painter = painterResource(icon),
+                contentDescription = description,
+                modifier = Modifier.size(20.dp),
+            )
+        }
+    }
+}
+
+@Composable
+private fun RowScope.CompactTextChoice(
+    label: String,
+    description: String,
+    selected: Boolean,
+    onClick: () -> Unit,
+) {
+    if (selected) {
+        Button(
+            onClick = onClick,
+            colors = ButtonDefaults.buttonColors(
+                containerColor = VisionBlue,
+                contentColor = Color.White,
+            ),
+            shape = RoundedCornerShape(14.dp),
+            contentPadding = PaddingValues(horizontal = 10.dp),
+            modifier = Modifier.weight(1f),
+        ) {
+            Text(label, maxLines = 1, fontWeight = FontWeight.Bold)
+        }
+    } else {
+        OutlinedButton(
+            onClick = onClick,
+            shape = RoundedCornerShape(14.dp),
+            contentPadding = PaddingValues(horizontal = 10.dp),
+            modifier = Modifier.weight(1f),
+        ) {
+            Text(label, maxLines = 1, fontWeight = FontWeight.Bold)
         }
     }
 }

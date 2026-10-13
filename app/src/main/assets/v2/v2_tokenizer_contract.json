@@ -1,0 +1,27 @@
+{
+  "schema_version": "1.0.0",
+  "tokenizer_type": "word_level",
+  "normalization_steps": [
+    "Unicode NFKC",
+    "lowercase",
+    "curved/backtick apostrophe to ASCII apostrophe",
+    "regex extraction"
+  ],
+  "token_pattern": "[a-z0-9]+(?:'[a-z0-9]+)?",
+  "hyphen_policy": "split_at_hyphen",
+  "punctuation_policy": "discard_as_token_boundary",
+  "number_policy": "retain_ascii_digit_sequences",
+  "contraction_policy": "retain_internal_ascii_apostrophe",
+  "vocabulary_source": "Karpathy train + restval only",
+  "validation_adds_tokens": false,
+  "test_read": false,
+  "minimum_frequency": 5,
+  "minimum_frequency_rationale": "pre-registered balance between rare-word noise, decoder output size, train-token coverage and validation OOV; sensitivity table is retained",
+  "special_token_ids": {
+    "<pad>": 0,
+    "<bos>": 1,
+    "<eos>": 2,
+    "<unk>": 3
+  },
+  "vocabulary_size": 10080
+}

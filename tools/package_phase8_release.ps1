@@ -76,7 +76,7 @@ $sourceSnapshotDir = Join-Path $payloadDir "source_snapshot"
     New-Item -ItemType Directory -Path $_ -Force | Out-Null
 }
 
-$releaseApk = Join-Path $artifactsDir "mobile_image_captioning_phase8_v1.0.apk"
+$releaseApk = Join-Path $artifactsDir "mobile_image_captioning_phase8_v1.4.0.apk"
 Copy-Item -LiteralPath $sourceApk -Destination $releaseApk -Force
 $apkSha256 = Get-Sha256Lower -Path $releaseApk
 $apkSizeBytes = (Get-Item -LiteralPath $releaseApk).Length
@@ -193,8 +193,8 @@ $auditPayload = [ordered]@{
     technical_level = "good"
     created_at = (Get-Date).ToUniversalTime().ToString("o")
     application_id = "com.klcn.mobilecaptioning"
-    version_name = "1.0"
-    version_code = 1
+    version_name = "1.4.0"
+    version_code = 5
     min_sdk = 26
     target_sdk = 36
     compile_sdk = 36
@@ -266,7 +266,7 @@ $reportText = @"
 
 ## APK
 
-- Ten: mobile_image_captioning_phase8_v1.0.apk
+- Ten: mobile_image_captioning_phase8_v1.4.0.apk
 - Kich thuoc: $([math]::Round($apkSizeBytes / 1MB, 2)) MB
 - SHA-256: $apkSha256
 - Ky: khoa debug cho ban release nghien cuu; khong dung de phat hanh Play Store.

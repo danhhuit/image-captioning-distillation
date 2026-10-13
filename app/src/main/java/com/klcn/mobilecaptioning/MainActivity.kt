@@ -9,6 +9,7 @@ import android.os.Build
 import android.os.Bundle
 import android.os.SystemClock
 import android.provider.MediaStore
+import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
@@ -54,11 +55,23 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         setContent {
             val context = LocalContext.current
+            val authStore = remember { AuthStore(context) }
+            var authSession by remember {
+                mutableStateOf(authStore.loadSession())
+            }
             var themeMode by remember {
-                mutableStateOf(AppPreferences.loadTheme(context))
+                mutableStateOf(
+                    AppPreferences.loadTheme(context, authSession.ownerId),
+                )
             }
             var language by remember {
-                mutableStateOf(AppPreferences.loadLanguage(context))
+                mutableStateOf(
+                    AppPreferences.loadLanguage(context, authSession.ownerId),
+                )
+            }
+            LaunchedEffect(authSession.ownerId) {
+                themeMode = AppPreferences.loadTheme(context, authSession.ownerId)
+                language = AppPreferences.loadLanguage(context, authSession.ownerId)
             }
             val systemDark = isSystemInDarkTheme()
             val useDarkTheme = when (themeMode) {
@@ -70,13 +83,28 @@ class MainActivity : ComponentActivity() {
                 Phase8InteractiveScreen(
                     themeMode = themeMode,
                     language = language,
+                    authStore = authStore,
+                    authSession = authSession,
+                    onAuthSessionChange = { authSession = it },
+                    onCentralPreferencesRefreshed = {
+                        themeMode = AppPreferences.loadTheme(context, authSession.ownerId)
+                        language = AppPreferences.loadLanguage(context, authSession.ownerId)
+                    },
                     onThemeModeChange = { updated ->
                         themeMode = updated
-                        AppPreferences.saveTheme(context, updated)
+                        AppPreferences.saveTheme(
+                            context,
+                            authSession.ownerId,
+                            updated,
+                        )
                     },
                     onLanguageChange = { updated ->
                         language = updated
-                        AppPreferences.saveLanguage(context, updated)
+                        AppPreferences.saveLanguage(
+                            context,
+                            authSession.ownerId,
+                            updated,
+                        )
                     },
                 )
             }
@@ -88,69 +116,163 @@ class MainActivity : ComponentActivity() {
 private fun Phase8InteractiveScreen(
     themeMode: AppThemeMode,
     language: AppLanguage,
+    authStore: AuthStore,
+    authSession: AuthSession,
+    onAuthSessionChange: (AuthSession) -> Unit,
+    onCentralPreferencesRefreshed: () -> Unit,
     onThemeModeChange: (AppThemeMode) -> Unit,
     onLanguageChange: (AppLanguage) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
+    val centralSync = remember { CentralSyncRepository(context) }
     var selectedBitmap by remember { mutableStateOf<Bitmap?>(null) }
+    var selectedSource by remember { mutableStateOf<ImageInputSource?>(null) }
     var pendingCameraUri by remember { mutableStateOf<Uri?>(null) }
     var selectedDestination by remember {
         mutableStateOf(AppDestination.Capture)
     }
     var historyItems by remember {
-        mutableStateOf(CaptionHistoryStore.load(context))
+        mutableStateOf(CaptionHistoryStore.load(context, authSession.ownerId))
     }
     var uiState by remember {
         mutableStateOf<CaptionUiState>(CaptionUiState.LoadingModel)
     }
+    var selectedModel by remember {
+        mutableStateOf(AppPreferences.loadModel(context, authSession.ownerId))
+    }
 
-    LaunchedEffect(Unit) {
+    LaunchedEffect(authSession.ownerId) {
+        historyItems = CaptionHistoryStore.load(context, authSession.ownerId)
+        selectedModel = AppPreferences.loadModel(context, authSession.ownerId)
+        selectedBitmap = null
+        selectedSource = null
+        uiState = CaptionUiState.Ready(currentModelLoadMs(selectedModel))
+        if (authSession.isAuthenticated) {
+            withContext(Dispatchers.IO) {
+                centralSync.flush(authSession.ownerId)
+                runCatching { centralSync.refreshPreferences(authSession.ownerId) }
+                runCatching { centralSync.refreshCaptionCache(authSession.ownerId) }
+            }
+            historyItems = CaptionHistoryStore.load(context, authSession.ownerId)
+            selectedModel = AppPreferences.loadModel(context, authSession.ownerId)
+            onCentralPreferencesRefreshed()
+        }
+    }
+
+    LaunchedEffect(selectedDestination) {
+        val refreshed = authStore.refreshCentralSession(authSession)
+        if (refreshed != authSession) onAuthSessionChange(refreshed)
+    }
+
+    LaunchedEffect(selectedModel) {
         try {
             val modelLoadMs = withContext(Dispatchers.IO) {
-                Phase8CaptionEngine.initialize(context)
+                if (selectedModel == CaptionModelMode.V1_FALLBACK) {
+                    Phase7KV2CaptionEngine.release()
+                    Phase8CaptionEngine.initialize(context)
+                } else {
+                    Phase8CaptionEngine.release()
+                    Phase7KV2CaptionEngine.initialize(context, selectedModel)
+                }
             }
             uiState = CaptionUiState.Ready(modelLoadMs)
         } catch (error: Throwable) {
             uiState = CaptionUiState.Error(
                 title = "Không thể khởi tạo mô hình",
-                message = "${error::class.java.simpleName}: ${error.message}",
+                message = "Vui lòng thử lại hoặc chọn mô hình khác.",
             )
         }
     }
 
-    val analyzeUri: (Uri, ImageInputSource) -> Unit = { uri, source ->
-        uiState = CaptionUiState.Processing(source)
+    val loadUri: (Uri, ImageInputSource) -> Unit = { uri, source ->
         coroutineScope.launch {
             try {
                 val bitmap = withContext(Dispatchers.IO) {
                     context.loadBitmapFromUri(uri)
                 }
                 selectedBitmap = bitmap
-                val presentation = context.captionRealImage(
-                    bitmap = bitmap,
-                    source = source,
-                )
-                val storedItem = withContext(Dispatchers.IO) {
-                    CaptionHistoryStore.add(
-                        context = context,
-                        result = presentation,
-                        bitmap = bitmap,
-                    )
-                }
-                historyItems = CaptionHistoryStore.load(context)
-                uiState = CaptionUiState.Success(
-                    presentation.copy(
-                        historyId = storedItem.id,
-                        favorite = storedItem.favorite,
-                    ),
-                )
+                selectedSource = source
+                uiState = CaptionUiState.Ready(currentModelLoadMs(selectedModel))
             } catch (error: Throwable) {
                 uiState = CaptionUiState.Error(
-                    title = "Không thể tạo chú thích",
-                    message = "${error::class.java.simpleName}: ${error.message}",
+                    title = "Không thể đọc ảnh",
+                    message = "Vui lòng chọn một ảnh hợp lệ.",
                 )
+            }
+        }
+    }
+
+    val generateCaption: () -> Unit = {
+        val bitmap = selectedBitmap
+        val source = selectedSource
+        if (bitmap != null && source != null) {
+            uiState = CaptionUiState.Processing(source)
+            coroutineScope.launch {
+                try {
+                    val presentation = context.captionRealImage(
+                        bitmap = bitmap,
+                        source = source,
+                        modelMode = selectedModel,
+                    )
+                val storedItem = if (
+                    authSession.can(
+                        AppResource.HISTORY,
+                        PermissionAction.CREATE,
+                    )
+                ) {
+                    withContext(Dispatchers.IO) {
+                        CaptionHistoryStore.add(
+                            context = context,
+                            ownerId = authSession.ownerId,
+                            result = presentation,
+                            bitmap = bitmap,
+                        )
+                    }
+                } else {
+                    null
+                }
+                if (storedItem != null) {
+                    historyItems = CaptionHistoryStore.load(
+                        context,
+                        authSession.ownerId,
+                    )
+                }
+                if (authSession.isAuthenticated) {
+                    centralSync.flush(authSession.ownerId)
+                }
+                uiState = CaptionUiState.Success(
+                    presentation.copy(
+                        historyId = storedItem?.id,
+                        favorite = storedItem?.favorite ?: false,
+                    ),
+                )
+                Toast.makeText(
+                    context,
+                    if (storedItem == null) {
+                        "Đã tạo chú thích. Chế độ Khách không lưu lịch sử."
+                    } else {
+                        "Đã tạo và lưu chú thích."
+                    },
+                    Toast.LENGTH_SHORT,
+                ).show()
+                authStore.recordActivity(
+                    authSession,
+                    "CAPTION_CREATE",
+                    "Tạo mô tả bằng ${selectedModel.displayName} từ ${source.name}",
+                )
+                } catch (error: Throwable) {
+                    uiState = CaptionUiState.Error(
+                        title = "Không thể tạo chú thích",
+                        message = "Vui lòng thử lại.",
+                    )
+                    Toast.makeText(
+                        context,
+                        "Không thể tạo chú thích.",
+                        Toast.LENGTH_SHORT,
+                    ).show()
+                }
             }
         }
     }
@@ -159,7 +281,7 @@ private fun Phase8InteractiveScreen(
         contract = ActivityResultContracts.GetContent(),
     ) { uri ->
         if (uri != null) {
-            analyzeUri(uri, ImageInputSource.Gallery)
+            loadUri(uri, ImageInputSource.Gallery)
         }
     }
 
@@ -168,10 +290,10 @@ private fun Phase8InteractiveScreen(
     ) { captured ->
         val uri = pendingCameraUri
         if (captured && uri != null) {
-            analyzeUri(uri, ImageInputSource.Camera)
+            loadUri(uri, ImageInputSource.Camera)
         } else {
             uiState = CaptionUiState.Ready(
-                Phase8CaptionEngine.modelLoadMs,
+                currentModelLoadMs(selectedModel),
             )
         }
     }
@@ -185,11 +307,39 @@ private fun Phase8InteractiveScreen(
         historyItems = historyItems,
         themeMode = themeMode,
         language = language,
+        selectedModel = selectedModel,
+        authStore = authStore,
+        authSession = authSession,
+        onAuthSessionChange = onAuthSessionChange,
         onThemeModeChange = onThemeModeChange,
         onLanguageChange = onLanguageChange,
+        onModelSelected = { updatedModel ->
+            if (updatedModel != selectedModel) {
+                authStore.recordActivity(
+                    authSession,
+                    "MODEL_SELECT",
+                    "Chọn mô hình ${updatedModel.displayName}",
+                )
+                selectedModel = updatedModel
+                AppPreferences.saveModel(
+                    context,
+                    authSession.ownerId,
+                    updatedModel,
+                )
+                selectedBitmap = null
+                selectedSource = null
+                uiState = CaptionUiState.LoadingModel
+                Toast.makeText(
+                    context,
+                    "Đã chọn ${updatedModel.displayName}.",
+                    Toast.LENGTH_SHORT,
+                ).show()
+            }
+        },
         onChooseGallery = {
             galleryLauncher.launch("image/*")
         },
+        onGenerateCaption = generateCaption,
         onOpenCamera = {
             try {
                 val imageDirectory = File(
@@ -210,24 +360,26 @@ private fun Phase8InteractiveScreen(
             } catch (error: Throwable) {
                 uiState = CaptionUiState.Error(
                     title = "Không thể mở Camera",
-                    message = "${error::class.java.simpleName}: ${error.message}",
+                    message = "Vui lòng kiểm tra quyền Camera và thử lại.",
                 )
             }
         },
         onClearCurrentImage = {
             selectedBitmap = null
+            selectedSource = null
             uiState = CaptionUiState.Ready(
-                Phase8CaptionEngine.modelLoadMs,
+                currentModelLoadMs(selectedModel),
             )
         },
         onDismissError = {
             uiState = CaptionUiState.Ready(
-                Phase8CaptionEngine.modelLoadMs,
+                currentModelLoadMs(selectedModel),
             )
         },
         onToggleCurrentFavorite = { historyId ->
             historyItems = CaptionHistoryStore.toggleFavorite(
                 context,
+                authSession.ownerId,
                 historyId,
             )
             val favorite = historyItems
@@ -239,16 +391,36 @@ private fun Phase8InteractiveScreen(
                     result = current.result.copy(favorite = favorite),
                 )
             }
+            authStore.recordActivity(
+                authSession,
+                "FAVORITE_UPDATE",
+                "Cập nhật trạng thái yêu thích",
+            )
+            coroutineScope.launch { centralSync.flush(authSession.ownerId) }
+            Toast.makeText(
+                context,
+                if (favorite) "Đã thêm vào yêu thích." else "Đã bỏ khỏi yêu thích.",
+                Toast.LENGTH_SHORT,
+            ).show()
         },
         onToggleHistoryFavorite = { historyId ->
             historyItems = CaptionHistoryStore.toggleFavorite(
                 context,
+                authSession.ownerId,
                 historyId,
             )
+            authStore.recordActivity(
+                authSession,
+                "FAVORITE_UPDATE",
+                "Cập nhật mục yêu thích trong lịch sử",
+            )
+            coroutineScope.launch { centralSync.flush(authSession.ownerId) }
+            Toast.makeText(context, "Đã cập nhật mục yêu thích.", Toast.LENGTH_SHORT).show()
         },
         onDeleteHistoryItem = { historyId ->
             historyItems = CaptionHistoryStore.delete(
                 context,
+                authSession.ownerId,
                 historyId,
             )
             val current = uiState
@@ -263,9 +435,16 @@ private fun Phase8InteractiveScreen(
                     ),
                 )
             }
+            authStore.recordActivity(
+                authSession,
+                "HISTORY_DELETE",
+                "Xóa một mục lịch sử",
+            )
+            coroutineScope.launch { centralSync.flush(authSession.ownerId) }
+            Toast.makeText(context, "Đã xóa mục lịch sử.", Toast.LENGTH_SHORT).show()
         },
         onClearHistory = {
-            CaptionHistoryStore.clear(context)
+            CaptionHistoryStore.clear(context, authSession.ownerId)
             historyItems = emptyList()
             val current = uiState
             if (current is CaptionUiState.Success) {
@@ -276,18 +455,48 @@ private fun Phase8InteractiveScreen(
                     ),
                 )
             }
+            authStore.recordActivity(
+                authSession,
+                "HISTORY_CLEAR",
+                "Xóa toàn bộ lịch sử",
+            )
+            coroutineScope.launch { centralSync.flush(authSession.ownerId) }
+            Toast.makeText(context, "Đã xóa toàn bộ lịch sử.", Toast.LENGTH_SHORT).show()
         },
     )
+}
+
+private fun currentModelLoadMs(modelMode: CaptionModelMode): Double {
+    return if (modelMode == CaptionModelMode.V1_FALLBACK) {
+        Phase8CaptionEngine.modelLoadMs
+    } else {
+        Phase7KV2CaptionEngine.modelLoadMs
+    }
 }
 
 private suspend fun Context.captionRealImage(
     bitmap: Bitmap,
     source: ImageInputSource,
+    modelMode: CaptionModelMode,
 ): CaptionPresentation =
     withContext(Dispatchers.IO) {
-        Phase8CaptionEngine.initialize(this@captionRealImage)
-        val firstResult = Phase8CaptionEngine.caption(bitmap)
-        val secondResult = Phase8CaptionEngine.caption(bitmap)
+        val inference = if (modelMode == CaptionModelMode.V1_FALLBACK) {
+            Phase8CaptionEngine.initialize(this@captionRealImage)
+            Triple(
+                Phase8CaptionEngine.caption(bitmap),
+                Phase8CaptionEngine.caption(bitmap),
+                Phase8CaptionEngine.modelLoadMs,
+            )
+        } else {
+            Phase7KV2CaptionEngine.initialize(this@captionRealImage, modelMode)
+            Triple(
+                Phase7KV2CaptionEngine.caption(bitmap),
+                Phase7KV2CaptionEngine.caption(bitmap),
+                Phase7KV2CaptionEngine.modelLoadMs,
+            )
+        }
+        val firstResult = inference.first
+        val secondResult = inference.second
         check(firstResult.tokenIds == secondResult.tokenIds) {
             "Hai lượt inference không trùng token IDs"
         }
@@ -304,6 +513,7 @@ private suspend fun Context.captionRealImage(
         CaptionPresentation(
             historyId = null,
             favorite = false,
+            modelLabel = modelMode.displayName,
             source = source,
             sourceWidth = bitmap.width,
             sourceHeight = bitmap.height,
@@ -313,7 +523,7 @@ private suspend fun Context.captionRealImage(
             eosPosition = firstResult.eosPosition,
             rawScore = firstResult.rawScore,
             normalizedScore = firstResult.normalizedScore,
-            modelLoadMs = Phase8CaptionEngine.modelLoadMs,
+            modelLoadMs = inference.third,
             preprocessingMs = firstResult.preprocessingMs,
             encoderMs = firstResult.encoderMs,
             beamMs = firstResult.beamMs,
@@ -323,7 +533,7 @@ private suspend fun Context.captionRealImage(
         )
     }
 
-private data class RealImageInferenceResult(
+internal data class CaptionInferenceResult(
     val caption: String,
     val tokenIds: List<Long>,
     val wordCount: Int,
@@ -419,7 +629,18 @@ private object Phase8CaptionEngine {
     }
 
     @Synchronized
-    fun caption(bitmap: Bitmap): RealImageInferenceResult {
+    fun release() {
+        if (!initialized) {
+            return
+        }
+        decoderSession.close()
+        encoderSession.close()
+        initialized = false
+        modelLoadMs = 0.0
+    }
+
+    @Synchronized
+    fun caption(bitmap: Bitmap): CaptionInferenceResult {
         check(initialized) {
             "Caption engine chua duoc initialize"
         }
@@ -471,7 +692,7 @@ private object Phase8CaptionEngine {
         check(captionWords.size >= 2)
         check(!forbiddenBeforeEos)
 
-        return RealImageInferenceResult(
+        return CaptionInferenceResult(
             caption = caption,
             tokenIds = tokenIds,
             wordCount = captionWords.size,

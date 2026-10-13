@@ -1,0 +1,71 @@
+{
+  "schema_version": "1.0.0",
+  "created_at_utc": "2026-09-07T15:44:58.777506+00:00",
+  "student_id": "S3",
+  "student_name": "TinyViT-5M",
+  "library": "timm",
+  "model_name": "tiny_vit_5m_224.dist_in22k_ft_in1k",
+  "pretrained_identifier": "tiny_vit_5m_224.dist_in22k_ft_in1k",
+  "input_size": 224,
+  "pretrained_mean": [
+    0.485,
+    0.456,
+    0.406
+  ],
+  "pretrained_std": [
+    0.229,
+    0.224,
+    0.225
+  ],
+  "selection_rationale": "compact transformer near the encoder-parameter budget of MobileNetV3-Large and MobileViT-S",
+  "shared_geometry": {
+    "input_size": [
+      3,
+      224,
+      224
+    ],
+    "color_mode": "RGB",
+    "interpolation": "bicubic",
+    "train": {
+      "random_resized_crop_scale": [
+        0.8,
+        1.0
+      ],
+      "random_resized_crop_ratio": [
+        0.75,
+        1.3333333333333333
+      ],
+      "horizontal_flip_probability": 0.5
+    },
+    "validation": {
+      "resize_shorter": 256,
+      "center_crop": 224,
+      "random_operation": false
+    }
+  },
+  "normalization": {
+    "mean": [
+      0.485,
+      0.456,
+      0.406
+    ],
+    "std": [
+      0.229,
+      0.224,
+      0.225
+    ],
+    "source": "pretrained model configuration"
+  },
+  "tensor": {
+    "dtype": "float32",
+    "layout": "CHW",
+    "batch_layout": "NCHW"
+  },
+  "policy": {
+    "validation_deterministic": true,
+    "test_transform_if_unsealed": "identical_to_validation",
+    "test_images_read": false,
+    "caption_read": false,
+    "training_started": false
+  }
+}
