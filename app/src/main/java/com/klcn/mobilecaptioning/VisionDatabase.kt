@@ -357,6 +357,44 @@ internal class VisionDatabase private constructor(context: Context) :
         }
     }
 
+    /**
+     * Removes obsolete provider-scoped cache without touching accounts that use
+     * another sign-in method. Related local rows are removed by foreign-key
+     * cascades; outbox rows need an explicit cleanup because they deliberately
+     * have no foreign key (they must also work while offline).
+     */
+    fun purgeCachedUsersByProvider(provider: AuthProvider): Int =
+        writableDatabase.inTransaction {
+            val ids = rawQuery(
+                "SELECT id FROM users WHERE provider = ? AND role != ?",
+                arrayOf(provider.name, UserRole.SUPER_ADMIN.name),
+            ).use { cursor ->
+                buildList {
+                    while (cursor.moveToNext()) add(cursor.getString(0))
+                }
+            }
+            if (ids.isEmpty()) return@inTransaction 0
+
+            val currentSession = rawQuery(
+                "SELECT state_value FROM app_state WHERE state_key = ?",
+                arrayOf(AuthStore.SessionKey),
+            ).use { cursor ->
+                if (cursor.moveToFirst()) cursor.getString(0) else null
+            }
+            if (currentSession in ids) {
+                delete(
+                    "app_state",
+                    "state_key IN (?, ?)",
+                    arrayOf(AuthStore.SessionKey, AuthStore.CentralTokenKey),
+                )
+            }
+            ids.forEach { id ->
+                delete("sync_outbox", "owner_id = ?", arrayOf(id))
+                delete("users", "id = ?", arrayOf(id))
+            }
+            ids.size
+        }
+
     fun rekeyCachedUser(oldId: String, newId: String) {
         if (oldId == newId) return
         writableDatabase.inTransaction {

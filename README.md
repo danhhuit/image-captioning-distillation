@@ -2,11 +2,12 @@
 
 Ứng dụng Android sinh chú thích tiếng Anh cho ảnh bằng các mô hình Image
 Captioning chạy trực tiếp trên thiết bị. Vision Caption hỗ trợ ảnh từ thư viện
-hoặc camera, nhiều mô hình ONNX tối ưu cho mobile, lịch sử và yêu thích theo
-từng tài khoản, giao diện Việt/Anh, chế độ sáng/tối, đăng nhập Google và màn
-hình quản trị người dùng.
+hoặc camera, dịch EN→VI trên thiết bị, đọc chú thích bằng giọng Anh/Việt,
+chia sẻ ảnh đã ghép chú thích, nhiều mô hình ONNX tối ưu cho mobile, lịch sử
+và yêu thích theo từng tài khoản, giao diện Việt/Anh, chế độ sáng/tối, đăng
+nhập Google và màn hình quản trị người dùng.
 
-Phiên bản Android hiện tại: **1.6.0**.
+Phiên bản Android hiện tại: **1.7.0**.
 
 > Đây là sản phẩm nghiên cứu. Các chỉ số hiển thị trong ứng dụng là kết quả
 > Validation, không phải phần trăm độ chính xác. Chất lượng caption có thể thay
@@ -44,6 +45,10 @@ Phiên bản Android hiện tại: **1.6.0**.
   - T2 → S2 INT8;
   - T3 → S3 INT8.
 - Beam Search với beam size 3.
+- Dịch caption tiếng Anh sang tiếng Việt bằng ML Kit on-device; lần đầu cần
+  mạng để tải language pack, các lần sau có thể dịch ngoại tuyến.
+- Đọc caption tiếng Anh và bản dịch tiếng Việt bằng Android Text-to-Speech.
+- Chia sẻ một ảnh tổng hợp gồm ảnh nguồn, caption tiếng Anh và bản dịch Việt.
 - Xem tensor contract, preprocessing, latency và thông tin mô hình.
 - Đăng nhập bằng username/email và mật khẩu.
 - Đăng nhập Google bằng Android Credential Manager.
@@ -59,6 +64,7 @@ Phiên bản Android hiện tại: **1.6.0**.
   - cấu hình quyền;
   - xem nhật ký hoạt động toàn hệ thống.
 - Giao diện tiếng Việt/English và Light/Dark/System theme.
+- Thanh điều hướng 5 mục: Lịch sử, Yêu thích, Chụp, Mô hình và Cá nhân.
 
 ## 2. Kiến trúc hệ thống
 
@@ -143,6 +149,7 @@ Thông số được khóa trong project:
 | Camera | Không bắt buộc; có thể chỉ dùng thư viện |
 | Kết nối mạng | Cần cho tài khoản/đồng bộ; inference vẫn chạy trên máy |
 | Google Play services | Cần nếu đăng nhập Google |
+| Text-to-Speech | Cần cài giọng English và Vietnamese để đọc cả hai ngôn ngữ |
 
 Thiết bị khuyến nghị:
 
@@ -391,7 +398,7 @@ PostgreSQL không được ứng dụng Android truy cập trực tiếp.
 
 ## 8. Cấu hình Android kết nối backend
 
-Địa chỉ API nằm tại:
+Địa chỉ mặc định nằm tại:
 
 ```text
 app/src/main/res/values/strings.xml
@@ -406,6 +413,8 @@ Giữ:
 ```
 
 `10.0.2.2` là địa chỉ đặc biệt để emulator truy cập loopback của máy host.
+Ứng dụng 1.7.0 cũng cho phép đổi URL tại **Thêm → Kết nối máy chủ**, không cần
+sửa mã nguồn và build lại.
 
 ### 8.2 Thiết bị thật qua USB — khuyến nghị khi phát triển
 
@@ -430,12 +439,15 @@ Sau khi ngắt USB hoặc reboot thiết bị, có thể cần chạy lại `adb
 
 Chỉ dùng trong mạng phát triển tin cậy:
 
-1. Đổi port binding API trong `docker-compose.yml` từ `127.0.0.1` sang địa chỉ
-   LAN thích hợp hoặc `0.0.0.0`.
+1. Đặt `API_BIND_HOST=0.0.0.0` trong `D:\KLCN\backend\.env` và chạy
+   `docker compose up -d --build`.
 2. Mở đúng port trên Windows Firewall.
-3. Đổi `central_api_base_url` sang IP máy tính, ví dụ
-   `http://192.168.1.10:8000`.
-4. Cập nhật `network_security_config.xml` nếu vẫn dùng HTTP development.
+3. Trên điện thoại mở **Thêm → Kết nối máy chủ**, nhập IP máy tính, ví dụ
+   `http://192.168.1.10:8000`, rồi chọn **Lưu và kiểm tra**.
+4. Mở cùng URL `/health` trên trình duyệt điện thoại để xác nhận đường truyền.
+
+Debug build có cấu hình network riêng cho HTTP LAN. Main/release config vẫn
+chặn cleartext để tránh vô tình phát hành bản không an toàn.
 
 Production phải dùng HTTPS; không bật cleartext toàn cục và không công khai
 cổng PostgreSQL.
@@ -567,15 +579,17 @@ Build release phục vụ nghiên cứu:
 3. Chọn/chụp một ảnh.
 4. Bấm **Chú thích ảnh/Generate caption**.
 5. Chờ model xử lý.
-6. Xem caption, số từ, model và thông tin runtime.
-7. Có thể sao chép hoặc chia sẻ caption.
+6. Xem caption tiếng Anh và bản dịch tiếng Việt ngay bên dưới.
+7. Chọn **EN** hoặc **VI** để nghe; thiết bị cần có voice tương ứng.
+8. Chọn **Chia sẻ** để gửi ảnh đã ghép cả caption Anh và bản dịch Việt.
 
-Caption mô hình hiện sinh bằng tiếng Anh. Tùy chọn Việt/Anh chỉ thay đổi ngôn
-ngữ giao diện.
+ML Kit tải language pack EN/VI trong lần dịch đầu tiên. Ảnh không được gửi
+đến dịch vụ dịch; sau khi model ngôn ngữ đã tải, phần dịch chạy trên thiết bị.
 
 ### 11.3 Chọn mô hình
 
-Mở **Thêm (…) → Mô hình**, chọn một runtime rồi quay lại màn hình Chụp.
+Có thể đổi mô hình trực tiếp tại màn hình **Chụp**, tab **Mô hình**, hoặc
+**Thêm → Mô hình**.
 
 - V1 FP32 là fallback mặc định.
 - Ba model V2 sử dụng ONNX INT8.
@@ -591,13 +605,13 @@ Mở **Thêm (…) → Mô hình**, chọn một runtime rồi quay lại màn h
 
 ### 11.5 Giao diện và ngôn ngữ
 
-Hai biểu tượng trên thanh đầu trang cho phép:
+Nút **+** cố định ở góc dưới trái mở hai điều khiển nhanh:
 
-- đổi Việt/English;
+- đổi Việt/English bằng cờ Việt Nam/Hoa Kỳ;
 - đổi Light/Dark theme.
 
-Mở **Thêm (…)** để truy cập tài khoản, mô hình, cài đặt và quản trị nếu có
-quyền.
+Chọn **×** để thu gọn. Mở **Thêm (…)** trong menu để truy cập tài khoản, mô
+hình, cấu hình API, cài đặt và quản trị nếu có quyền.
 
 ## 12. Tài khoản và phân quyền
 

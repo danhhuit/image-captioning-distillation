@@ -93,6 +93,7 @@ internal fun AuthDestination(
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
+    val vietnamese = language == AppLanguage.Vietnamese
     var mode by remember { mutableStateOf(AuthMode.SIGN_IN) }
     var displayName by remember { mutableStateOf("") }
     var username by remember { mutableStateOf("") }
@@ -105,8 +106,9 @@ internal fun AuthDestination(
     var loading by remember { mutableStateOf(false) }
 
     fun handle(operation: AuthOperation) {
-        message = operation.message
-        Toast.makeText(context, operation.message, Toast.LENGTH_SHORT).show()
+        val localizedMessage = localizedOperationMessage(operation.message, language)
+        message = localizedMessage
+        Toast.makeText(context, localizedMessage, Toast.LENGTH_SHORT).show()
         if (operation.success && operation.session != null) {
             onAuthenticated(operation.session)
         }
@@ -154,12 +156,16 @@ internal fun AuthDestination(
                     }
                     Column {
                         Text(
-                            "Chào mừng trở lại",
+                            if (vietnamese) "Chào mừng trở lại" else "Welcome back",
                             style = MaterialTheme.typography.titleLarge,
                             fontWeight = FontWeight.Bold,
                         )
                         Text(
-                            "Đăng nhập để đồng bộ lịch sử và mục yêu thích.",
+                            if (vietnamese) {
+                                "Đăng nhập để đồng bộ lịch sử và mục yêu thích."
+                            } else {
+                                "Sign in to sync your history and favorites."
+                            },
                             style = MaterialTheme.typography.bodySmall,
                         )
                     }
@@ -168,6 +174,7 @@ internal fun AuthDestination(
 
             AuthModeSelector(
                 selected = mode,
+                language = language,
                 onSelected = {
                     mode = it
                     challenge = null
@@ -186,13 +193,13 @@ internal fun AuthDestination(
                             AuthTextField(
                                 value = identifier,
                                 onValueChange = { identifier = it },
-                                label = "Username hoặc email",
+                                label = if (vietnamese) "Username hoặc email" else "Username or email",
                                 keyboardType = KeyboardType.Email,
                             )
                             AuthTextField(
                                 value = password,
                                 onValueChange = { password = it },
-                                label = "Mật khẩu",
+                                label = if (vietnamese) "Mật khẩu" else "Password",
                                 password = true,
                             )
                             TextButton(
@@ -204,7 +211,7 @@ internal fun AuthDestination(
                                 },
                                 modifier = Modifier.align(Alignment.End),
                             ) {
-                                Text("Quên mật khẩu?")
+                                Text(if (vietnamese) "Quên mật khẩu?" else "Forgot password?")
                             }
                             Button(
                                 onClick = {
@@ -224,7 +231,7 @@ internal fun AuthDestination(
                                     password.isNotBlank(),
                                 shape = RoundedCornerShape(16.dp),
                             ) {
-                                Text("Đăng nhập")
+                                Text(if (vietnamese) "Đăng nhập" else "Sign in")
                             }
                             OutlinedButton(
                                 onClick = {
@@ -243,7 +250,11 @@ internal fun AuthDestination(
                                                 AuthOperation(
                                                     false,
                                                     it.message
-                                                        ?: "Không thể đăng nhập Google.",
+                                                        ?: if (vietnamese) {
+                                                            "Không thể đăng nhập Google."
+                                                        } else {
+                                                            "Unable to sign in with Google."
+                                                        },
                                                 )
                                             },
                                         )
@@ -261,7 +272,13 @@ internal fun AuthDestination(
                                     modifier = Modifier.size(20.dp),
                                 )
                                 Spacer(Modifier.size(8.dp))
-                                Text("Đăng nhập bằng Google")
+                                Text(
+                                    if (vietnamese) {
+                                        "Đăng nhập bằng Google"
+                                    } else {
+                                        "Sign in with Google"
+                                    },
+                                )
                             }
                         }
                     }
@@ -273,7 +290,7 @@ internal fun AuthDestination(
                             AuthTextField(
                                 value = displayName,
                                 onValueChange = { displayName = it },
-                                label = "Họ và tên",
+                                label = if (vietnamese) "Họ và tên" else "Full name",
                             )
                             AuthTextField(
                                 value = username,
@@ -282,7 +299,11 @@ internal fun AuthDestination(
                             )
                             if (usernameTaken) {
                                 Text(
-                                    "Username đã tồn tại; không thể tạo tài khoản.",
+                                    if (vietnamese) {
+                                        "Username đã tồn tại; không thể tạo tài khoản."
+                                    } else {
+                                        "This username is already in use."
+                                    },
                                     color = MaterialTheme.colorScheme.error,
                                     style = MaterialTheme.typography.bodySmall,
                                 )
@@ -295,7 +316,11 @@ internal fun AuthDestination(
                             )
                             if (emailTaken) {
                                 Text(
-                                    "Email đã được sử dụng; không thể tạo tài khoản.",
+                                    if (vietnamese) {
+                                        "Email đã được sử dụng; không thể tạo tài khoản."
+                                    } else {
+                                        "This email address is already in use."
+                                    },
                                     color = MaterialTheme.colorScheme.error,
                                     style = MaterialTheme.typography.bodySmall,
                                 )
@@ -303,13 +328,13 @@ internal fun AuthDestination(
                             AuthTextField(
                                 value = password,
                                 onValueChange = { password = it },
-                                label = "Mật khẩu",
+                                label = if (vietnamese) "Mật khẩu" else "Password",
                                 password = true,
                             )
                             AuthTextField(
                                 value = confirmPassword,
                                 onValueChange = { confirmPassword = it },
-                                label = "Nhập lại mật khẩu",
+                                label = if (vietnamese) "Nhập lại mật khẩu" else "Confirm password",
                                 password = true,
                             )
                             Button(
@@ -338,7 +363,7 @@ internal fun AuthDestination(
                                     !emailTaken,
                                 shape = RoundedCornerShape(16.dp),
                             ) {
-                                Text("Tạo tài khoản")
+                                Text(if (vietnamese) "Tạo tài khoản" else "Create account")
                             }
                         }
                     }
@@ -348,13 +373,17 @@ internal fun AuthDestination(
                             AuthTextField(
                                 value = identifier,
                                 onValueChange = { identifier = it },
-                                label = "Username hoặc email",
+                                label = if (vietnamese) "Username hoặc email" else "Username or email",
                             )
                             if (challenge == null) {
                                 Button(
                                     onClick = {
                                         challenge = store.requestOtp(identifier)
-                                        message = "Đã tạo mã khôi phục tạm thời."
+                                        message = if (vietnamese) {
+                                            "Đã tạo mã khôi phục tạm thời."
+                                        } else {
+                                            "A temporary recovery code was created."
+                                        }
                                         Toast.makeText(
                                             context,
                                             message,
@@ -365,20 +394,20 @@ internal fun AuthDestination(
                                     enabled = identifier.isNotBlank(),
                                     shape = RoundedCornerShape(16.dp),
                                 ) {
-                                    Text("Nhận mã khôi phục")
+                                    Text(if (vietnamese) "Nhận mã khôi phục" else "Get recovery code")
                                 }
                             } else {
-                                RecoveryCodeNotice(challenge!!)
+                                RecoveryCodeNotice(challenge!!, language)
                                 AuthTextField(
                                     value = otp,
                                     onValueChange = { otp = it },
-                                    label = "Mã xác minh",
+                                    label = if (vietnamese) "Mã xác minh" else "Verification code",
                                     keyboardType = KeyboardType.Number,
                                 )
                                 AuthTextField(
                                     value = password,
                                     onValueChange = { password = it },
-                                    label = "Mật khẩu mới",
+                                    label = if (vietnamese) "Mật khẩu mới" else "New password",
                                     password = true,
                                 )
                                 Button(
@@ -402,7 +431,7 @@ internal fun AuthDestination(
                                     modifier = Modifier.fillMaxWidth(),
                                     shape = RoundedCornerShape(16.dp),
                                 ) {
-                                    Text("Đặt lại mật khẩu")
+                                    Text(if (vietnamese) "Đặt lại mật khẩu" else "Reset password")
                                 }
                             }
                         }
@@ -428,11 +457,14 @@ internal fun AuthDestination(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(16.dp),
             ) {
-                Text("Tiếp tục với tư cách Khách")
+                Text(if (vietnamese) "Tiếp tục với tư cách Khách" else "Continue as guest")
             }
             Text(
-                text = "Guest chỉ dùng Caption và xem thông tin mô hình ở " +
-                    "chế độ giới hạn; lịch sử, yêu thích và quản trị yêu cầu đăng nhập.",
+                text = if (vietnamese) {
+                    "Khách chỉ tạo chú thích và xem mô hình; lịch sử, yêu thích và quản trị yêu cầu đăng nhập."
+                } else {
+                    "Guests can create captions and preview models; history, favorites and administration require sign-in."
+                },
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 textAlign = TextAlign.Center,
@@ -459,7 +491,7 @@ internal fun AuthDestination(
                         verticalArrangement = Arrangement.spacedBy(12.dp),
                     ) {
                         CircularProgressIndicator()
-                        Text("Đang xử lý…")
+                        Text(if (vietnamese) "Đang xử lý…" else "Processing…")
                     }
                 }
             }
@@ -470,17 +502,25 @@ internal fun AuthDestination(
 @Composable
 private fun AuthModeSelector(
     selected: AuthMode,
+    language: AppLanguage,
     onSelected: (AuthMode) -> Unit,
 ) {
+    val vietnamese = language == AppLanguage.Vietnamese
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            ModeButton("Đăng nhập", selected == AuthMode.SIGN_IN) {
+            ModeButton(
+                if (vietnamese) "Đăng nhập" else "Sign in",
+                selected == AuthMode.SIGN_IN,
+            ) {
                 onSelected(AuthMode.SIGN_IN)
             }
-            ModeButton("Đăng ký", selected == AuthMode.REGISTER) {
+            ModeButton(
+                if (vietnamese) "Đăng ký" else "Register",
+                selected == AuthMode.REGISTER,
+            ) {
                 onSelected(AuthMode.REGISTER)
             }
         }
@@ -489,7 +529,7 @@ private fun AuthModeSelector(
                 onClick = { onSelected(AuthMode.SIGN_IN) },
                 modifier = Modifier.fillMaxWidth(),
             ) {
-                Text("Quay lại đăng nhập")
+                Text(if (vietnamese) "Quay lại đăng nhập" else "Back to sign in")
             }
         }
     }
@@ -583,19 +623,30 @@ private fun AuthTextField(
 }
 
 @Composable
-private fun RecoveryCodeNotice(challenge: OtpChallenge) {
+private fun RecoveryCodeNotice(
+    challenge: OtpChallenge,
+    language: AppLanguage,
+) {
+    val vietnamese = language == AppLanguage.Vietnamese
     Surface(
         color = MaterialTheme.colorScheme.tertiaryContainer,
         shape = RoundedCornerShape(14.dp),
     ) {
         Column(modifier = Modifier.padding(13.dp)) {
             Text(
-                "Mã khôi phục tạm thời: ${challenge.code}",
+                if (vietnamese) {
+                    "Mã khôi phục tạm thời: ${challenge.code}"
+                } else {
+                    "Temporary recovery code: ${challenge.code}"
+                },
                 fontWeight = FontWeight.Bold,
             )
             Text(
-                "Khi triển khai chính thức, mã này phải được gửi qua email " +
-                    "bằng dịch vụ xác thực phía máy chủ và không hiển thị tại đây.",
+                if (vietnamese) {
+                    "Khi triển khai chính thức, mã này phải được gửi qua email và không hiển thị tại đây."
+                } else {
+                    "In production this code must be sent by email and must not be displayed here."
+                },
                 style = MaterialTheme.typography.bodySmall,
             )
         }
@@ -605,9 +656,11 @@ private fun RecoveryCodeNotice(challenge: OtpChallenge) {
 @Composable
 internal fun AccessRequiredDestination(
     title: String,
+    language: AppLanguage,
     onOpenMenu: () -> Unit,
     onLogin: () -> Unit,
 ) {
+    val vietnamese = language == AppLanguage.Vietnamese
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -615,7 +668,11 @@ internal fun AccessRequiredDestination(
         verticalArrangement = Arrangement.spacedBy(24.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        FeatureHeader(title, "Yêu cầu quyền truy cập", onOpenMenu)
+        FeatureHeader(
+            title,
+            if (vietnamese) "Yêu cầu quyền truy cập" else "Sign-in required",
+            onOpenMenu,
+        )
         Spacer(Modifier.weight(1f))
         Surface(
             color = MaterialTheme.colorScheme.primaryContainer,
@@ -630,20 +687,27 @@ internal fun AccessRequiredDestination(
             )
         }
         Text(
-            text = "Đăng nhập để sử dụng $title",
+            text = if (vietnamese) {
+                "Đăng nhập để sử dụng $title"
+            } else {
+                "Sign in to use $title"
+            },
             style = MaterialTheme.typography.titleLarge,
             fontWeight = FontWeight.Bold,
             textAlign = TextAlign.Center,
         )
         Text(
-            text = "Chế độ Khách chỉ cung cấp trải nghiệm Caption và " +
-                "thông tin mô hình ở mức preview.",
+            text = if (vietnamese) {
+                "Chế độ Khách chỉ cho phép tạo chú thích và xem trước thông tin mô hình."
+            } else {
+                "Guest mode only provides captioning and model preview."
+            },
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             textAlign = TextAlign.Center,
         )
         Button(onClick = onLogin) {
-            Text("Đi tới đăng nhập")
+            Text(if (vietnamese) "Đi tới đăng nhập" else "Go to sign in")
         }
         Spacer(Modifier.weight(1f))
     }
@@ -652,10 +716,12 @@ internal fun AccessRequiredDestination(
 @Composable
 internal fun AuthenticatedAccountDestination(
     session: AuthSession,
+    language: AppLanguage,
     onOpenMenu: () -> Unit,
     onLogout: () -> Unit,
     onOpenAdmin: () -> Unit,
 ) {
+    val vietnamese = language == AppLanguage.Vietnamese
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -663,7 +729,7 @@ internal fun AuthenticatedAccountDestination(
         verticalArrangement = Arrangement.spacedBy(18.dp),
     ) {
         FeatureHeader(
-            title = "Tài khoản",
+            title = if (vietnamese) "Cá nhân" else "Profile",
             subtitle = session.role.name.replace("_", " "),
             onOpenMenu = onOpenMenu,
         )
@@ -698,7 +764,8 @@ internal fun AuthenticatedAccountDestination(
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
                 Text(
-                    "Nhà cung cấp: ${session.account?.provider?.name}",
+                    (if (vietnamese) "Nhà cung cấp: " else "Provider: ") +
+                        session.account?.provider?.name,
                     style = MaterialTheme.typography.bodySmall,
                 )
             }
@@ -709,7 +776,13 @@ internal fun AuthenticatedAccountDestination(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(16.dp),
             ) {
-                Text("Mở quản trị & phân quyền")
+                Text(
+                    if (vietnamese) {
+                        "Mở quản trị & phân quyền"
+                    } else {
+                        "Open user administration"
+                    },
+                )
             }
         }
         OutlinedButton(
@@ -720,19 +793,21 @@ internal fun AuthenticatedAccountDestination(
                 contentColor = MaterialTheme.colorScheme.error,
             ),
         ) {
-            Text("Đăng xuất")
+            Text(if (vietnamese) "Đăng xuất" else "Sign out")
         }
     }
 }
 
 @Composable
 internal fun ModelInsightsDestination(
+    language: AppLanguage,
     selectedModel: CaptionModelMode,
     modelSelectionEnabled: Boolean,
     onModelSelected: (CaptionModelMode) -> Unit,
     latestLatencyMs: Double?,
     onOpenMenu: () -> Unit,
 ) {
+    val vietnamese = language == AppLanguage.Vietnamese
     val context = LocalContext.current
     val activityManager = remember {
         context.getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager
@@ -762,8 +837,12 @@ internal fun ModelInsightsDestination(
     ) {
         item {
             FeatureHeader(
-                title = "Mô hình",
-                subtitle = "Đo trên thiết bị và số liệu tham chiếu",
+                title = if (vietnamese) "Mô hình" else "Models",
+                subtitle = if (vietnamese) {
+                    "Đo trên thiết bị và số liệu tham chiếu"
+                } else {
+                    "On-device measurements and reference metrics"
+                },
                 onOpenMenu = onOpenMenu,
             )
         }
@@ -771,11 +850,12 @@ internal fun ModelInsightsDestination(
             ModelSelectionCard(
                 selectedModel = selectedModel,
                 enabled = modelSelectionEnabled,
+                language = language,
                 onModelSelected = onModelSelected,
             )
         }
         item {
-            ModelConfigurationCard(selectedModel)
+            ModelConfigurationCard(selectedModel, language)
         }
         item {
             DeviceMetricCard(
@@ -783,36 +863,67 @@ internal fun ModelInsightsDestination(
                 availableRamGb = availableRamGb,
                 appPssMb = appPssMb,
                 cpuCores = Runtime.getRuntime().availableProcessors(),
+                language = language,
             )
         }
         item {
             ComparisonCard(
-                title = selectedModel.teacherName,
+                title = if (!selectedModel.isV2 && !vietnamese) {
+                    "V1 reference model"
+                } else {
+                    selectedModel.teacherName
+                },
                 badge = "GPU / Server",
-                weight = "Mô hình tham chiếu chất lượng cao",
-                memory = "Không đóng gói trong APK",
-                performance = "Nguồn truyền tri thức",
+                weight = if (vietnamese) {
+                    "Mô hình tham chiếu chất lượng cao"
+                } else {
+                    "High-quality reference model"
+                },
+                memory = if (vietnamese) "Không đóng gói trong APK" else "Not bundled in the APK",
+                performance = if (vietnamese) "Nguồn truyền tri thức" else "Knowledge source",
                 progress = 1f,
                 emphasized = false,
             )
         }
         item {
             ComparisonCard(
-                title = selectedModel.studentName,
+                title = if (!selectedModel.isV2 && !vietnamese) {
+                    "V1 inference engine"
+                } else {
+                    selectedModel.studentName
+                },
                 badge = if (selectedModel.isV2) "On-device INT8" else "On-device FP32",
                 weight = "${"%.1f".format(studentSizeMb)} MiB model assets",
-                memory = "App PSS hiện tại: ${"%.1f".format(appPssMb)} MiB",
+                memory = (
+                    if (vietnamese) "App PSS hiện tại: " else "Current app PSS: "
+                    ) + "${"%.1f".format(appPssMb)} MiB",
                 performance = selectedModel.validationCiderD?.let { cider ->
                     "Validation CIDEr-D: ${"%.4f".format(cider)} · " +
                         (
                             latestLatencyMs?.let {
-                                "lượt gần nhất ${"%.0f".format(it)} ms"
-                            } ?: "chưa có inference trên thiết bị"
+                                if (vietnamese) {
+                                    "lượt gần nhất ${"%.0f".format(it)} ms"
+                                } else {
+                                    "latest run ${"%.0f".format(it)} ms"
+                                }
+                            } ?: if (vietnamese) {
+                                "chưa có inference trên thiết bị"
+                            } else {
+                                "no on-device inference yet"
+                            }
                             )
                 } ?: (
                     latestLatencyMs?.let {
-                        "Inference gần nhất: ${"%.0f".format(it)} ms"
-                    } ?: "Chưa có lượt inference thực tế"
+                        if (vietnamese) {
+                            "Inference gần nhất: ${"%.0f".format(it)} ms"
+                        } else {
+                            "Latest inference: ${"%.0f".format(it)} ms"
+                        }
+                    } ?: if (vietnamese) {
+                        "Chưa có lượt inference thực tế"
+                    } else {
+                        "No measured inference yet"
+                    }
                     ),
                 progress = (
                     1.0 - (selectedModel.packageReductionFraction ?: 0.0)
@@ -824,7 +935,11 @@ internal fun ModelInsightsDestination(
 }
 
 @Composable
-private fun ModelConfigurationCard(model: CaptionModelMode) {
+private fun ModelConfigurationCard(
+    model: CaptionModelMode,
+    language: AppLanguage,
+) {
+    val vietnamese = language == AppLanguage.Vietnamese
     var expanded by remember(model) { mutableStateOf(false) }
     val parameters = when (model) {
         CaptionModelMode.V1_FALLBACK -> "8,480,816"
@@ -852,28 +967,43 @@ private fun ModelConfigurationCard(model: CaptionModelMode) {
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Column(modifier = Modifier.weight(1f)) {
-                    Text("Thông số cấu hình", fontWeight = FontWeight.Bold)
+                    Text(
+                        if (vietnamese) "Thông số cấu hình" else "Configuration",
+                        fontWeight = FontWeight.Bold,
+                    )
                     Text(
                         "${model.displayName} · $precision",
                         style = MaterialTheme.typography.bodySmall,
                     )
                 }
-                Text(if (expanded) "Thu gọn" else "Xem chi tiết")
+                Text(
+                    if (expanded) {
+                        if (vietnamese) "Thu gọn" else "Collapse"
+                    } else {
+                        if (vietnamese) "Xem chi tiết" else "View details"
+                    },
+                )
             }
             AnimatedVisibility(expanded) {
                 Column(verticalArrangement = Arrangement.spacedBy(7.dp)) {
                     HorizontalDivider()
-                    ConfigurationRow("Mã mô hình", model.pairId)
-                    ConfigurationRow("Kiến trúc", model.studentName)
-                    ConfigurationRow("Số tham số", parameters)
-                    ConfigurationRow("Độ chính xác", precision)
+                    ConfigurationRow(if (vietnamese) "Mã mô hình" else "Model ID", model.pairId)
+                    ConfigurationRow(
+                        if (vietnamese) "Kiến trúc" else "Architecture",
+                        if (!model.isV2 && !vietnamese) "V1 inference engine" else model.studentName,
+                    )
+                    ConfigurationRow(if (vietnamese) "Số tham số" else "Parameters", parameters)
+                    ConfigurationRow(if (vietnamese) "Độ chính xác" else "Precision", precision)
                     ConfigurationRow("Encoder", model.encoderAsset ?: "baseline_encoder_fp32.onnx")
                     ConfigurationRow("Decoder", model.decoderAsset ?: "baseline_decoder_fp32.onnx")
-                    ConfigurationRow("Từ vựng", vocabulary)
-                    ConfigurationRow("Đầu vào", "float32 [1,3,224,224]")
+                    ConfigurationRow(if (vietnamese) "Từ vựng" else "Vocabulary", vocabulary)
+                    ConfigurationRow(if (vietnamese) "Đầu vào" else "Input", "float32 [1,3,224,224]")
                     ConfigurationRow("Visual memory", memory)
                     ConfigurationRow("Decoder logits", logits)
-                    ConfigurationRow("Beam search", "beam 3 · tối đa 31 tokens")
+                    ConfigurationRow(
+                        "Beam search",
+                        if (vietnamese) "beam 3 · tối đa 31 tokens" else "beam 3 · max 31 tokens",
+                    )
                     model.validationCiderD?.let {
                         ConfigurationRow("Validation CIDEr-D", "%.4f".format(it))
                     }
@@ -911,8 +1041,10 @@ private fun ConfigurationRow(label: String, value: String) {
 private fun ModelSelectionCard(
     selectedModel: CaptionModelMode,
     enabled: Boolean,
+    language: AppLanguage,
     onModelSelected: (CaptionModelMode) -> Unit,
 ) {
+    val vietnamese = language == AppLanguage.Vietnamese
     Card(
         shape = RoundedCornerShape(22.dp),
         colors = CardDefaults.cardColors(
@@ -924,13 +1056,20 @@ private fun ModelSelectionCard(
             verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
             Text(
-                text = "Chọn mô hình chạy trên thiết bị",
+                text = if (vietnamese) {
+                    "Chọn mô hình chạy trên thiết bị"
+                } else {
+                    "Select an on-device model"
+                },
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold,
             )
             Text(
-                text = "V1 được giữ làm fallback. Ba lựa chọn V2 là artifact " +
-                    "INT8 đã vượt quality gate trên Karpathy Validation.",
+                text = if (vietnamese) {
+                    "V1 là phương án dự phòng. Ba mô hình V2 INT8 đã vượt cổng chất lượng."
+                } else {
+                    "V1 is the fallback. All three V2 INT8 artifacts passed the quality gate."
+                },
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -959,7 +1098,9 @@ private fun DeviceMetricCard(
     availableRamGb: Double,
     appPssMb: Double,
     cpuCores: Int,
+    language: AppLanguage,
 ) {
+    val vietnamese = language == AppLanguage.Vietnamese
     Card(
         shape = RoundedCornerShape(22.dp),
         colors = CardDefaults.cardColors(
@@ -970,13 +1111,20 @@ private fun DeviceMetricCard(
             modifier = Modifier.padding(18.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
-            Text("Thiết bị hiện tại", fontWeight = FontWeight.Bold)
+            Text(
+                if (vietnamese) "Thiết bị hiện tại" else "Current device",
+                fontWeight = FontWeight.Bold,
+            )
             Text(
                 "RAM: ${"%.1f".format(availableRamGb)} / " +
-                    "${"%.1f".format(totalRamGb)} GiB khả dụng",
+                    "${"%.1f".format(totalRamGb)} GiB " +
+                    if (vietnamese) "khả dụng" else "available",
             )
             Text("CPU: $cpuCores logical cores")
-            Text("Ứng dụng: ${"%.1f".format(appPssMb)} MiB PSS")
+            Text(
+                (if (vietnamese) "Ứng dụng: " else "Application: ") +
+                    "${"%.1f".format(appPssMb)} MiB PSS",
+            )
         }
     }
 }
@@ -1056,10 +1204,12 @@ private fun ComparisonCard(
 internal fun AdminDestination(
     store: AuthStore,
     session: AuthSession,
+    language: AppLanguage,
     onOpenMenu: () -> Unit,
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
+    val vietnamese = language == AppLanguage.Vietnamese
     var users by remember { mutableStateOf(store.listManagedUsers()) }
     var activities by remember { mutableStateOf(store.listActivities()) }
     var selected by remember { mutableStateOf<UserAccount?>(null) }
@@ -1071,7 +1221,8 @@ internal fun AdminDestination(
     var activityPage by remember { mutableStateOf(1) }
     if (session.role != UserRole.SUPER_ADMIN) {
         AccessRequiredDestination(
-            title = "Quản trị",
+            title = if (language == AppLanguage.Vietnamese) "Quản trị" else "Administration",
+            language = language,
             onOpenMenu = onOpenMenu,
             onLogin = {},
         )
@@ -1081,7 +1232,9 @@ internal fun AdminDestination(
         val result = store.refreshAdminCache()
         users = store.listManagedUsers()
         activities = store.listActivities()
-        if (!result.success) message = result.message
+        if (!result.success) {
+            message = localizedOperationMessage(result.message, language)
+        }
     }
     val normalizedQuery = searchQuery.trim().lowercase()
     val filteredActivities = activities.filter { event ->
@@ -1117,13 +1270,18 @@ internal fun AdminDestination(
     ) {
         item {
             FeatureHeader(
-                title = "Quản trị người dùng",
-                subtitle = "${users.size} tài khoản · RBAC",
+                title = if (vietnamese) "Quản trị người dùng" else "User administration",
+                subtitle = "${users.size} " +
+                    if (vietnamese) "tài khoản · RBAC" else "accounts · RBAC",
                 onOpenMenu = onOpenMenu,
             )
         }
         item {
-            AdminStatisticsCard(users = users, activities = activities)
+            AdminStatisticsCard(
+                users = users,
+                activities = activities,
+                language = language,
+            )
         }
         item {
             OutlinedTextField(
@@ -1135,7 +1293,15 @@ internal fun AdminDestination(
                 },
                 modifier = Modifier.fillMaxWidth(),
                 singleLine = true,
-                label = { Text("Tìm người dùng hoặc hoạt động") },
+                label = {
+                    Text(
+                        if (vietnamese) {
+                            "Tìm người dùng hoặc hoạt động"
+                        } else {
+                            "Search users or activity"
+                        },
+                    )
+                },
                 leadingIcon = {
                     Icon(
                         painter = painterResource(R.drawable.ic_search),
@@ -1147,7 +1313,7 @@ internal fun AdminDestination(
                         IconButton(onClick = { searchQuery = "" }) {
                             Icon(
                                 painter = painterResource(R.drawable.ic_close),
-                                contentDescription = "Xóa tìm kiếm",
+                                contentDescription = if (vietnamese) "Xóa tìm kiếm" else "Clear search",
                             )
                         }
                     }
@@ -1166,7 +1332,7 @@ internal fun AdminDestination(
                             activityFilter = filter
                             activityPage = 1
                         },
-                        label = { Text(filter.label) },
+                        label = { Text(filter.label(language)) },
                     )
                 }
             }
@@ -1211,9 +1377,14 @@ internal fun AdminDestination(
                         )
                         Text(
                             if (user.active) {
-                                "${activities.count { it.userId == user.id }} hoạt động"
+                                "${activities.count { it.userId == user.id }} " +
+                                    if (vietnamese) "hoạt động" else "activities"
                             } else {
-                                "Đã khóa · không thể đăng nhập"
+                                if (vietnamese) {
+                                    "Đã khóa · không thể đăng nhập"
+                                } else {
+                                    "Locked · sign-in disabled"
+                                }
                             },
                             style = MaterialTheme.typography.labelSmall,
                             color = if (user.active) {
@@ -1231,12 +1402,21 @@ internal fun AdminDestination(
             }
         }
         if (filteredUsers.isEmpty()) {
-            item { Text("Không tìm thấy người dùng phù hợp.") }
+            item {
+                Text(
+                    if (vietnamese) {
+                        "Không tìm thấy người dùng phù hợp."
+                    } else {
+                        "No matching users."
+                    },
+                )
+            }
         } else {
             item {
                 AdminPager(
                     page = userPage,
                     pages = userPages,
+                    language = language,
                     onPrevious = { userPage-- },
                     onNext = { userPage++ },
                 )
@@ -1244,7 +1424,7 @@ internal fun AdminDestination(
         }
         item {
             Text(
-                "Hoạt động gần đây",
+                if (vietnamese) "Hoạt động gần đây" else "Recent activity",
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold,
                 modifier = Modifier.padding(top = 8.dp),
@@ -1253,18 +1433,19 @@ internal fun AdminDestination(
         if (filteredActivities.isEmpty()) {
             item {
                 Text(
-                    "Không có hoạt động phù hợp.",
+                    if (vietnamese) "Không có hoạt động phù hợp." else "No matching activity.",
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
         } else {
             items(visibleActivities, key = UserActivityEvent::id) { event ->
-                ActivityEventCard(event)
+                ActivityEventCard(event, language)
             }
             item {
                 AdminPager(
                     page = activityPage,
                     pages = activityPages,
+                    language = language,
                     onPrevious = { activityPage-- },
                     onNext = { activityPage++ },
                 )
@@ -1274,6 +1455,7 @@ internal fun AdminDestination(
     selected?.let { user ->
         PermissionDialog(
             user = user,
+            language = language,
             onDismiss = { selected = null },
             onEdit = {
                 editing = user
@@ -1282,8 +1464,9 @@ internal fun AdminDestination(
             onSave = { permissions ->
                 scope.launch {
                     val result = store.updatePermissionsCentral(user.id, permissions)
-                    message = result.message
-                    Toast.makeText(context, result.message, Toast.LENGTH_SHORT).show()
+                    val localizedMessage = localizedOperationMessage(result.message, language)
+                    message = localizedMessage
+                    Toast.makeText(context, localizedMessage, Toast.LENGTH_SHORT).show()
                     users = store.listManagedUsers()
                     activities = store.listActivities()
                     if (result.success) selected = null
@@ -1292,8 +1475,9 @@ internal fun AdminDestination(
             onSetActive = { active ->
                 scope.launch {
                     val result = store.setUserActiveCentral(user.id, active)
-                    message = result.message
-                    Toast.makeText(context, result.message, Toast.LENGTH_SHORT).show()
+                    val localizedMessage = localizedOperationMessage(result.message, language)
+                    message = localizedMessage
+                    Toast.makeText(context, localizedMessage, Toast.LENGTH_SHORT).show()
                     users = store.listManagedUsers()
                     activities = store.listActivities()
                     if (result.success) selected = null
@@ -1304,6 +1488,7 @@ internal fun AdminDestination(
     editing?.let { user ->
         UserEditDialog(
             user = user,
+            language = language,
             onDismiss = { editing = null },
             onSave = { displayName, password ->
                 scope.launch {
@@ -1312,8 +1497,9 @@ internal fun AdminDestination(
                         displayName = displayName,
                         password = password,
                     )
-                    message = result.message
-                    Toast.makeText(context, result.message, Toast.LENGTH_SHORT).show()
+                    val localizedMessage = localizedOperationMessage(result.message, language)
+                    message = localizedMessage
+                    Toast.makeText(context, localizedMessage, Toast.LENGTH_SHORT).show()
                     users = store.listManagedUsers()
                     activities = store.listActivities()
                     if (result.success) editing = null
@@ -1323,15 +1509,60 @@ internal fun AdminDestination(
     }
 }
 
+private fun localizedOperationMessage(
+    message: String,
+    language: AppLanguage,
+): String {
+    if (language == AppLanguage.Vietnamese || message.none { it.code > 127 }) {
+        return message
+    }
+    return when {
+        message.startsWith("Đã đăng nhập bằng Google") -> "Signed in with Google!"
+        message.startsWith("Đã đăng nhập") -> "Signed in successfully!"
+        message.startsWith("Đã đăng ký") -> "Account created!"
+        message.startsWith("Đã đăng xuất") -> "Signed out."
+        message.startsWith("Đã cập nhật nhóm quyền") -> "Permissions updated."
+        message.startsWith("Đã cập nhật thông tin") -> "Account updated."
+        message.startsWith("Đã mở khóa") -> "User unlocked."
+        message.startsWith("Đã khóa") -> "User locked."
+        message.startsWith("Không thể kết nối") -> "Unable to connect. Check the server address and network."
+        message.startsWith("Thông tin đăng nhập") -> "Incorrect username, email or password."
+        message.startsWith("Tài khoản đã bị khóa") -> "This account is locked or lacks access."
+        message.startsWith("Không tìm thấy") -> "The requested account or data was not found."
+        message.startsWith("Username đã tồn tại") -> "This username is already in use."
+        message.startsWith("Email đã được sử dụng") -> "This email address is already in use."
+        message.startsWith("Họ và tên") -> "Full name must contain 2 to 60 characters."
+        message.startsWith("Username cần") -> "Username must contain 3–24 valid characters."
+        message.startsWith("Email chưa đúng") -> "Enter a valid email address."
+        message.startsWith("Mật khẩu cần") || message.startsWith("Mật khẩu mới cần") ->
+            "Password must have at least 8 characters, uppercase, lowercase and a number."
+        message.startsWith("Hai mật khẩu") -> "Passwords do not match."
+        message.startsWith("Thông tin chưa hợp lệ") -> "Some information is invalid. Please review it."
+        message.startsWith("Không thể thay đổi") -> "This protected account cannot be changed."
+        else -> "The request could not be completed. Please try again."
+    }
+}
+
 private const val AdminUserPageSize = 5
 private const val AdminActivityPageSize = 10
 
-private enum class AdminActivityFilter(val label: String) {
-    ALL("Tất cả"),
-    AUTH("Đăng nhập"),
-    CAPTION("Chú thích"),
-    ACCESS("Quyền"),
-    ACCOUNT("Tài khoản");
+private enum class AdminActivityFilter {
+    ALL,
+    AUTH,
+    CAPTION,
+    ACCESS,
+    ACCOUNT;
+
+    fun label(language: AppLanguage): String {
+        val vietnamese = language == AppLanguage.Vietnamese
+        return when (this) {
+            ALL -> if (vietnamese) "Tất cả" else "All"
+            AUTH -> if (vietnamese) "Đăng nhập" else "Authentication"
+            CAPTION -> if (vietnamese) "Chú thích" else "Captions"
+            ACCESS -> if (vietnamese) "Quyền" else "Access"
+            ACCOUNT -> if (vietnamese) "Tài khoản" else "Accounts"
+        }
+    }
 
     fun matches(action: String): Boolean = when (this) {
         ALL -> true
@@ -1346,9 +1577,11 @@ private enum class AdminActivityFilter(val label: String) {
 private fun AdminPager(
     page: Int,
     pages: Int,
+    language: AppLanguage,
     onPrevious: () -> Unit,
     onNext: () -> Unit,
 ) {
+    val vietnamese = language == AppLanguage.Vietnamese
     Row(
         modifier = Modifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically,
@@ -1357,14 +1590,17 @@ private fun AdminPager(
         IconButton(onClick = onPrevious, enabled = page > 1) {
             Icon(
                 painter = painterResource(R.drawable.ic_previous),
-                contentDescription = "Trang trước",
+                contentDescription = if (vietnamese) "Trang trước" else "Previous page",
             )
         }
-        Text("Trang $page / $pages", style = MaterialTheme.typography.labelLarge)
+        Text(
+            (if (vietnamese) "Trang" else "Page") + " $page / $pages",
+            style = MaterialTheme.typography.labelLarge,
+        )
         IconButton(onClick = onNext, enabled = page < pages) {
             Icon(
                 painter = painterResource(R.drawable.ic_next),
-                contentDescription = "Trang sau",
+                contentDescription = if (vietnamese) "Trang sau" else "Next page",
             )
         }
     }
@@ -1374,7 +1610,9 @@ private fun AdminPager(
 private fun AdminStatisticsCard(
     users: List<UserAccount>,
     activities: List<UserActivityEvent>,
+    language: AppLanguage,
 ) {
+    val vietnamese = language == AppLanguage.Vietnamese
     val authenticatedUsers = users.count { it.role != UserRole.SUPER_ADMIN }
     val signIns = activities.count { it.action.endsWith("LOGIN") }
     val captions = activities.count { it.action == "CAPTION_CREATE" }
@@ -1388,15 +1626,18 @@ private fun AdminStatisticsCard(
             modifier = Modifier.padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            Text("Tổng quan hoạt động", fontWeight = FontWeight.Bold)
+            Text(
+                if (vietnamese) "Tổng quan hoạt động" else "Activity overview",
+                fontWeight = FontWeight.Bold,
+            )
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
             ) {
-                AdminMetric("Người dùng", authenticatedUsers.toString())
-                AdminMetric("Đăng nhập", signIns.toString())
-                AdminMetric("Tạo mô tả", captions.toString())
-                AdminMetric("Tổng sự kiện", activities.size.toString())
+                AdminMetric(if (vietnamese) "Người dùng" else "Users", authenticatedUsers.toString())
+                AdminMetric(if (vietnamese) "Đăng nhập" else "Sign-ins", signIns.toString())
+                AdminMetric(if (vietnamese) "Tạo mô tả" else "Captions", captions.toString())
+                AdminMetric(if (vietnamese) "Tổng sự kiện" else "Events", activities.size.toString())
             }
         }
     }
@@ -1415,7 +1656,11 @@ private fun AdminMetric(label: String, value: String) {
 }
 
 @Composable
-private fun ActivityEventCard(event: UserActivityEvent) {
+private fun ActivityEventCard(
+    event: UserActivityEvent,
+    language: AppLanguage,
+) {
+    val vietnamese = language == AppLanguage.Vietnamese
     val formattedTime = remember(event.occurredAtMillis) {
         SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.getDefault())
             .format(Date(event.occurredAtMillis))
@@ -1435,20 +1680,63 @@ private fun ActivityEventCard(event: UserActivityEvent) {
                 Text("@${event.username}", fontWeight = FontWeight.Bold)
                 Text(formattedTime, style = MaterialTheme.typography.labelSmall)
             }
-            Text(event.action.replace('_', ' '), color = MaterialTheme.colorScheme.primary)
-            Text(event.detail, style = MaterialTheme.typography.bodySmall)
+            Text(
+                localizedActivityAction(event.action, vietnamese),
+                color = MaterialTheme.colorScheme.primary,
+            )
+            Text(
+                if (vietnamese || event.detail.none { it.code > 127 }) {
+                    event.detail
+                } else {
+                    localizedActivityDetail(event.action)
+                },
+                style = MaterialTheme.typography.bodySmall,
+            )
         }
     }
+}
+
+private fun localizedActivityAction(
+    action: String,
+    vietnamese: Boolean,
+): String {
+    if (!vietnamese) return action.replace('_', ' ')
+    return when (action) {
+        "PASSWORD_LOGIN" -> "ĐĂNG NHẬP"
+        "GOOGLE_LOGIN" -> "ĐĂNG NHẬP GOOGLE"
+        "REGISTER" -> "ĐĂNG KÝ"
+        "LOGOUT" -> "ĐĂNG XUẤT"
+        "CAPTION_CREATE" -> "TẠO CHÚ THÍCH"
+        "FAVORITE_UPDATE" -> "CẬP NHẬT YÊU THÍCH"
+        "HISTORY_DELETE" -> "XÓA LỊCH SỬ"
+        "HISTORY_CLEAR" -> "XÓA TOÀN BỘ LỊCH SỬ"
+        "MODEL_SELECT" -> "CHỌN MÔ HÌNH"
+        else -> action.replace('_', ' ')
+    }
+}
+
+private fun localizedActivityDetail(action: String): String = when (action) {
+    "PASSWORD_LOGIN", "GOOGLE_LOGIN" -> "Signed in successfully."
+    "REGISTER" -> "Account created."
+    "LOGOUT" -> "Signed out."
+    "CAPTION_CREATE" -> "Created an image caption."
+    "FAVORITE_UPDATE" -> "Updated a favorite."
+    "HISTORY_DELETE" -> "Deleted a history item."
+    "HISTORY_CLEAR" -> "Cleared caption history."
+    "MODEL_SELECT" -> "Selected an on-device model."
+    else -> "Activity completed."
 }
 
 @Composable
 private fun PermissionDialog(
     user: UserAccount,
+    language: AppLanguage,
     onDismiss: () -> Unit,
     onEdit: () -> Unit,
     onSave: (Set<String>) -> Unit,
     onSetActive: (Boolean) -> Unit,
 ) {
+    val vietnamese = language == AppLanguage.Vietnamese
     val hiddenUserResources = setOf(AppResource.USERS, AppResource.ROLES)
     var permissions by remember(user.id) {
         mutableStateOf(
@@ -1473,7 +1761,11 @@ private fun PermissionDialog(
                 Column(modifier = Modifier.weight(1f)) {
                     Text(user.displayName)
                     Text(
-                        if (user.active) "Đang hoạt động" else "Đã khóa",
+                        if (user.active) {
+                            if (vietnamese) "Đang hoạt động" else "Active"
+                        } else {
+                            if (vietnamese) "Đã khóa" else "Locked"
+                        },
                         style = MaterialTheme.typography.bodySmall,
                         color = if (user.active) {
                             MaterialTheme.colorScheme.primary
@@ -1486,7 +1778,7 @@ private fun PermissionDialog(
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
                             TextButton(onClick = onEdit) {
-                                Text("Chỉnh sửa")
+                                Text(if (vietnamese) "Chỉnh sửa" else "Edit")
                             }
                             IconButton(
                                 onClick = { onSetActive(!user.active) },
@@ -1498,9 +1790,9 @@ private fun PermissionDialog(
                                         else R.drawable.ic_lock_open,
                                     ),
                                     contentDescription = if (user.active) {
-                                        "Khóa người dùng"
+                                        if (vietnamese) "Khóa người dùng" else "Lock user"
                                     } else {
-                                        "Mở khóa người dùng"
+                                        if (vietnamese) "Mở khóa người dùng" else "Unlock user"
                                     },
                                 )
                             }
@@ -1510,7 +1802,7 @@ private fun PermissionDialog(
                 IconButton(onClick = onDismiss) {
                     Icon(
                         painter = painterResource(R.drawable.ic_close),
-                        contentDescription = "Đóng",
+                        contentDescription = if (vietnamese) "Đóng" else "Close",
                     )
                 }
             }
@@ -1537,7 +1829,7 @@ private fun PermissionDialog(
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
                             Text(
-                                "TÀI NGUYÊN: ${resource.name}",
+                                (if (vietnamese) "TÀI NGUYÊN: " else "RESOURCE: ") + resource.name,
                                 modifier = Modifier.weight(1f),
                                 fontWeight = FontWeight.Bold,
                                 style = MaterialTheme.typography.labelLarge,
@@ -1558,9 +1850,9 @@ private fun PermissionDialog(
                             ) {
                                 Text(
                                     if (allSelected) {
-                                        "Bỏ chọn"
+                                        if (vietnamese) "Bỏ chọn" else "Clear"
                                     } else {
-                                        "Chọn tất cả"
+                                        if (vietnamese) "Chọn tất cả" else "Select all"
                                     },
                                     style = MaterialTheme.typography.labelSmall,
                                 )
@@ -1596,7 +1888,7 @@ private fun PermissionDialog(
                 onClick = { onSave(permissions) },
                 enabled = user.role != UserRole.SUPER_ADMIN,
             ) {
-                Text("Lưu quyền")
+                Text(if (vietnamese) "Lưu quyền" else "Save permissions")
             }
         },
         dismissButton = {},
@@ -1606,9 +1898,11 @@ private fun PermissionDialog(
 @Composable
 private fun UserEditDialog(
     user: UserAccount,
+    language: AppLanguage,
     onDismiss: () -> Unit,
     onSave: (displayName: String, password: String?) -> Unit,
 ) {
+    val vietnamese = language == AppLanguage.Vietnamese
     var displayName by remember(user.id) { mutableStateOf(user.displayName) }
     var password by remember(user.id) { mutableStateOf("") }
     var confirmPassword by remember(user.id) { mutableStateOf("") }
@@ -1633,14 +1927,14 @@ private fun UserEditDialog(
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Text(
-                    text = "Chỉnh sửa tài khoản",
+                    text = if (vietnamese) "Chỉnh sửa tài khoản" else "Edit account",
                     modifier = Modifier.weight(1f),
                     fontWeight = FontWeight.Bold,
                 )
                 IconButton(onClick = onDismiss) {
                     Icon(
                         painter = painterResource(R.drawable.ic_close),
-                        contentDescription = "Đóng",
+                        contentDescription = if (vietnamese) "Đóng" else "Close",
                     )
                 }
             }
@@ -1657,7 +1951,7 @@ private fun UserEditDialog(
                     onValueChange = { displayName = it },
                     modifier = Modifier.fillMaxWidth(),
                     singleLine = true,
-                    label = { Text("Họ và tên") },
+                    label = { Text(if (vietnamese) "Họ và tên" else "Full name") },
                 )
                 OutlinedTextField(
                     value = user.username,
@@ -1666,7 +1960,15 @@ private fun UserEditDialog(
                     singleLine = true,
                     readOnly = true,
                     enabled = false,
-                    label = { Text("Username · Không thể thay đổi") },
+                    label = {
+                        Text(
+                            if (vietnamese) {
+                                "Username · Không thể thay đổi"
+                            } else {
+                                "Username · Cannot be changed"
+                            },
+                        )
+                    },
                 )
                 OutlinedTextField(
                     value = user.email.orEmpty(),
@@ -1675,14 +1977,27 @@ private fun UserEditDialog(
                     singleLine = true,
                     readOnly = true,
                     enabled = false,
-                    label = { Text("Email · Không thể thay đổi") },
+                    label = {
+                        Text(
+                            if (vietnamese) "Email · Không thể thay đổi"
+                            else "Email · Cannot be changed",
+                        )
+                    },
                 )
                 OutlinedTextField(
                     value = password,
                     onValueChange = { password = it },
                     modifier = Modifier.fillMaxWidth(),
                     singleLine = true,
-                    label = { Text("Mật khẩu mới · Không bắt buộc") },
+                    label = {
+                        Text(
+                            if (vietnamese) {
+                                "Mật khẩu mới · Không bắt buộc"
+                            } else {
+                                "New password · Optional"
+                            },
+                        )
+                    },
                     visualTransformation = if (showPassword) {
                         VisualTransformation.None
                     } else {
@@ -1700,9 +2015,9 @@ private fun UserEditDialog(
                                     else R.drawable.ic_visibility,
                                 ),
                                 contentDescription = if (showPassword) {
-                                    "Ẩn mật khẩu"
+                                    if (vietnamese) "Ẩn mật khẩu" else "Hide password"
                                 } else {
-                                    "Hiện mật khẩu"
+                                    if (vietnamese) "Hiện mật khẩu" else "Show password"
                                 },
                             )
                         }
@@ -1713,7 +2028,12 @@ private fun UserEditDialog(
                     onValueChange = { confirmPassword = it },
                     modifier = Modifier.fillMaxWidth(),
                     singleLine = true,
-                    label = { Text("Nhập lại mật khẩu mới") },
+                    label = {
+                        Text(
+                            if (vietnamese) "Nhập lại mật khẩu mới"
+                            else "Confirm new password",
+                        )
+                    },
                     visualTransformation = if (showConfirmPassword) {
                         VisualTransformation.None
                     } else {
@@ -1733,9 +2053,9 @@ private fun UserEditDialog(
                                     else R.drawable.ic_visibility,
                                 ),
                                 contentDescription = if (showConfirmPassword) {
-                                    "Ẩn mật khẩu"
+                                    if (vietnamese) "Ẩn mật khẩu" else "Hide password"
                                 } else {
-                                    "Hiện mật khẩu"
+                                    if (vietnamese) "Hiện mật khẩu" else "Show password"
                                 },
                             )
                         }
@@ -1743,13 +2063,21 @@ private fun UserEditDialog(
                 )
                 if (!strongPassword) {
                     Text(
-                        text = "Mật khẩu cần ít nhất 8 ký tự, có chữ hoa, chữ thường và số.",
+                        text = if (vietnamese) {
+                            "Mật khẩu cần ít nhất 8 ký tự, có chữ hoa, chữ thường và số."
+                        } else {
+                            "Password must have at least 8 characters, uppercase, lowercase and a number."
+                        },
                         color = MaterialTheme.colorScheme.error,
                         style = MaterialTheme.typography.bodySmall,
                     )
                 } else if (password != confirmPassword) {
                     Text(
-                        text = "Hai mật khẩu chưa trùng nhau.",
+                        text = if (vietnamese) {
+                            "Hai mật khẩu chưa trùng nhau."
+                        } else {
+                            "Passwords do not match."
+                        },
                         color = MaterialTheme.colorScheme.error,
                         style = MaterialTheme.typography.bodySmall,
                     )
@@ -1763,12 +2091,12 @@ private fun UserEditDialog(
                 },
                 enabled = canSave,
             ) {
-                Text("Lưu thay đổi")
+                Text(if (vietnamese) "Lưu thay đổi" else "Save changes")
             }
         },
         dismissButton = {
             TextButton(onClick = onDismiss) {
-                Text("Hủy")
+                Text(if (vietnamese) "Hủy" else "Cancel")
             }
         },
     )
@@ -1803,7 +2131,6 @@ internal fun FeatureHeader(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
-        // Reserve one fixed row for the language and theme controls.
-        Spacer(Modifier.size(104.dp))
+        Spacer(Modifier.size(48.dp))
     }
 }

@@ -2,6 +2,7 @@ package com.klcn.mobilecaptioning
 
 import android.content.Context
 import android.util.Base64
+import androidx.credentials.ClearCredentialStateRequest
 import androidx.credentials.CredentialManager
 import androidx.credentials.CustomCredential
 import androidx.credentials.GetCredentialRequest
@@ -115,6 +116,7 @@ internal class AuthStore(private val context: Context) {
     init {
         database.seedPermissionDefinitions(allPermissions())
         migrateLegacyAuthData()
+        purgeObsoleteGoogleCache()
         ensureGuestAccount()
     }
 
@@ -626,7 +628,15 @@ internal class AuthStore(private val context: Context) {
 
     private fun centralErrorMessage(error: Throwable): String = when (error) {
         is CentralApiException -> when (error.statusCode) {
-            401 -> "Thông tin đăng nhập không chính xác."
+            401 -> when (error.message) {
+                "GOOGLE_TOKEN_INVALID" ->
+                    "Phiên đăng nhập Google không hợp lệ. Vui lòng chọn lại tài khoản Google."
+                "GOOGLE_NONCE_MISMATCH" ->
+                    "Phiên Google đã hết hiệu lực. Vui lòng thử đăng nhập lại."
+                "GOOGLE_EMAIL_UNVERIFIED" ->
+                    "Email Google chưa được xác minh."
+                else -> "Thông tin đăng nhập không chính xác."
+            }
             403 -> "Tài khoản đã bị khóa hoặc không có quyền truy cập."
             404 -> "Không tìm thấy dữ liệu yêu cầu."
             409 -> when (error.message) {
@@ -747,6 +757,14 @@ internal class AuthStore(private val context: Context) {
         preferences.edit().putBoolean(DatabaseMigrationKey, true).apply()
     }
 
+    private fun purgeObsoleteGoogleCache() {
+        if (preferences.getBoolean(GoogleCacheResetKey, false)) return
+        database.purgeCachedUsersByProvider(AuthProvider.GOOGLE)
+        preferences.edit()
+            .putBoolean(GoogleCacheResetKey, true)
+            .apply()
+    }
+
     private fun uniqueUsername(base: String, accounts: List<UserAccount>): String {
         val cleaned = base.lowercase()
             .replace(Regex("[^a-z0-9._]"), "")
@@ -817,6 +835,7 @@ internal class AuthStore(private val context: Context) {
         private const val ActivitiesKey = "activity_events"
         internal const val SessionKey = "session_user_id"
         private const val DatabaseMigrationKey = "sqlite_v1_migrated"
+        private const val GoogleCacheResetKey = "google_cache_reset_2026_10"
         private const val Pbkdf2Iterations = 120_000
         private val EmailPattern = Regex(
             "^[A-Za-z0-9+_.-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}$",
@@ -863,7 +882,9 @@ internal object GoogleIdentityGateway {
             val request = GetCredentialRequest.Builder()
                 .addCredentialOption(googleOption)
                 .build()
-            val credential = CredentialManager.create(context)
+            val credentialManager = CredentialManager.create(context)
+            credentialManager.clearCredentialState(ClearCredentialStateRequest())
+            val credential = credentialManager
                 .getCredential(context, request)
                 .credential
             check(

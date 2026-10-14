@@ -15,6 +15,7 @@
 .externalNativeBuild
 .cxx
 local.properties
+/app/src/debug/res/values/local_server.xml
 hs_err_pid*.log
 replay_pid*.log
 *.hprof

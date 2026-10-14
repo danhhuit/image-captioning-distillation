@@ -9,6 +9,38 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.json.JSONObject
 
+internal object CentralApiSettings {
+    private const val PreferencesName = "central_api_settings"
+    private const val BaseUrlKey = "base_url"
+
+    fun load(context: Context): String =
+        context.getSharedPreferences(PreferencesName, Context.MODE_PRIVATE)
+            .getString(BaseUrlKey, null)
+            ?.trim()
+            ?.trimEnd('/')
+            ?.takeIf(String::isNotBlank)
+            ?: context.getString(R.string.central_api_base_url).trimEnd('/')
+
+    fun save(context: Context, value: String): String {
+        val normalized = value.trim().trimEnd('/').let { candidate ->
+            if (
+                candidate.startsWith("http://", ignoreCase = true) ||
+                candidate.startsWith("https://", ignoreCase = true)
+            ) {
+                candidate
+            } else {
+                "http://$candidate"
+            }
+        }
+        require(URL(normalized).host.isNotBlank()) { "Invalid API URL" }
+        context.getSharedPreferences(PreferencesName, Context.MODE_PRIVATE)
+            .edit()
+            .putString(BaseUrlKey, normalized)
+            .apply()
+        return normalized
+    }
+}
+
 internal data class CentralSession(
     val accessToken: String,
     val account: UserAccount,
@@ -20,7 +52,10 @@ internal class CentralApiException(
 ) : Exception(message)
 
 internal class CentralApiClient(context: Context) {
-    private val baseUrl = context.getString(R.string.central_api_base_url).trimEnd('/')
+    private val appContext = context.applicationContext
+
+    suspend fun health(): Boolean =
+        request("GET", "/health", null, null).optString("status") == "ok"
 
     suspend fun login(identifier: String, password: String): CentralSession =
         post(
@@ -209,6 +244,7 @@ internal class CentralApiClient(context: Context) {
         body: JSONObject?,
         token: String?,
     ): JSONObject = withContext(Dispatchers.IO) {
+        val baseUrl = CentralApiSettings.load(appContext)
         val connection = URL("$baseUrl$path").openConnection() as HttpURLConnection
         try {
             connection.requestMethod = method

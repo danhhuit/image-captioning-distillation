@@ -3,4 +3,7 @@
     <cache-path
         name="captured_images"
         path="captured_images/" />
+    <cache-path
+        name="shared_captions"
+        path="shared_captions/" />
 </paths>

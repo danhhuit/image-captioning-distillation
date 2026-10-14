@@ -56,6 +56,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.DrawerValue
 import androidx.compose.material3.rememberDrawerState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -86,7 +87,9 @@ import java.util.Calendar
 import java.util.Locale
 import kotlin.math.ceil
 import kotlin.math.max
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 internal enum class AppDestination {
     Capture,
@@ -118,6 +121,8 @@ private data class VisionStrings(
     val capture: String,
     val history: String,
     val favorites: String,
+    val model: String,
+    val personal: String,
     val settings: String,
     val appTagline: String,
     val modelReady: String,
@@ -133,6 +138,13 @@ private data class VisionStrings(
     val copy: String,
     val copied: String,
     val share: String,
+    val englishCaption: String,
+    val vietnameseTranslation: String,
+    val translating: String,
+    val translationUnavailable: String,
+    val listenEnglish: String,
+    val listenVietnamese: String,
+    val speechUnavailable: String,
     val details: String,
     val hideDetails: String,
     val historyTitle: String,
@@ -184,6 +196,12 @@ private data class VisionStrings(
     val guest: String,
     val loginSoon: String,
     val logoutSoon: String,
+    val apiConnection: String,
+    val apiConnectionHint: String,
+    val apiAddress: String,
+    val saveAndTest: String,
+    val apiConnected: String,
+    val apiUnavailable: String,
 )
 
 private fun visionStrings(language: AppLanguage): VisionStrings =
@@ -192,6 +210,8 @@ private fun visionStrings(language: AppLanguage): VisionStrings =
             capture = "Chụp",
             history = "Lịch sử",
             favorites = "Yêu thích",
+            model = "Mô hình",
+            personal = "Cá nhân",
             settings = "Thêm",
             appTagline = "Mô tả hình ảnh trực tiếp trên thiết bị",
             modelReady = "Mô hình sẵn sàng",
@@ -207,6 +227,13 @@ private fun visionStrings(language: AppLanguage): VisionStrings =
             copy = "Sao chép",
             copied = "Đã chép",
             share = "Chia sẻ",
+            englishCaption = "Chú thích tiếng Anh",
+            vietnameseTranslation = "Bản dịch tiếng Việt",
+            translating = "Đang tải bộ dịch EN–VI…",
+            translationUnavailable = "Chưa thể dịch. Hãy kết nối mạng một lần để tải bộ dịch.",
+            listenEnglish = "Đọc tiếng Anh",
+            listenVietnamese = "Đọc tiếng Việt",
+            speechUnavailable = "Thiết bị chưa có dữ liệu giọng nói phù hợp.",
             details = "Chi tiết kỹ thuật",
             hideDetails = "Ẩn chi tiết",
             historyTitle = "Lịch sử",
@@ -238,7 +265,7 @@ private fun visionStrings(language: AppLanguage): VisionStrings =
             privacyBody = "Ảnh và mô tả được xử lý, lưu cục bộ. Ứng dụng không cần gửi ảnh lên máy chủ.",
             about = "Giới thiệu",
             aboutBody = "Vision Caption biến hình ảnh thành mô tả rõ ràng ngay trên thiết bị. Nền tảng AI ngoại tuyến bảo vệ dữ liệu riêng tư, cho phép lựa chọn nhiều mô hình tối ưu, theo dõi hiệu năng minh bạch và lưu lại những khoảnh khắc quan trọng mà không phụ thuộc kết nối mạng.",
-            version = "Phiên bản 1.6.0 · PostgreSQL trung tâm · AI ngoại tuyến",
+            version = "Phiên bản 1.7.0 · PostgreSQL trung tâm · AI ngoại tuyến",
             dismiss = "Đóng",
             words = "từ",
             repeatable = "Kết quả tái lập",
@@ -258,12 +285,20 @@ private fun visionStrings(language: AppLanguage): VisionStrings =
             guest = "Người dùng khách",
             loginSoon = "Đăng nhập · Sắp có",
             logoutSoon = "Đăng xuất · Sắp có",
+            apiConnection = "Kết nối máy chủ",
+            apiConnectionHint = "Nhập URL FastAPI mà điện thoại có thể truy cập",
+            apiAddress = "Địa chỉ API",
+            saveAndTest = "Lưu và kiểm tra",
+            apiConnected = "Đã kết nối máy chủ.",
+            apiUnavailable = "Không kết nối được. Kiểm tra URL, Wi-Fi và tường lửa.",
         )
     } else {
         VisionStrings(
             capture = "Capture",
             history = "History",
             favorites = "Favorites",
+            model = "Models",
+            personal = "Profile",
             settings = "More",
             appTagline = "On-device image descriptions",
             modelReady = "Model ready",
@@ -279,6 +314,13 @@ private fun visionStrings(language: AppLanguage): VisionStrings =
             copy = "Copy",
             copied = "Copied",
             share = "Share",
+            englishCaption = "English caption",
+            vietnameseTranslation = "Vietnamese translation",
+            translating = "Downloading the EN–VI translation model…",
+            translationUnavailable = "Translation is unavailable. Connect once to download the language model.",
+            listenEnglish = "Read English",
+            listenVietnamese = "Read Vietnamese",
+            speechUnavailable = "A suitable text-to-speech voice is not installed.",
             details = "Technical details",
             hideDetails = "Hide details",
             historyTitle = "History",
@@ -310,7 +352,7 @@ private fun visionStrings(language: AppLanguage): VisionStrings =
             privacyBody = "Images and captions are processed and stored locally. No image upload is required.",
             about = "About",
             aboutBody = "Vision Caption turns images into clear, useful descriptions directly on your device. Private offline AI, transparent performance insights, multiple optimized models and personal history deliver dependable visual understanding without relying on the cloud.",
-            version = "Version 1.6.0 · Central PostgreSQL · Offline AI",
+            version = "Version 1.7.0 · Central PostgreSQL · Offline AI",
             dismiss = "Dismiss",
             words = "words",
             repeatable = "Repeatable result",
@@ -330,6 +372,12 @@ private fun visionStrings(language: AppLanguage): VisionStrings =
             guest = "Guest user",
             loginSoon = "Sign in · Coming soon",
             logoutSoon = "Sign out · Coming soon",
+            apiConnection = "Server connection",
+            apiConnectionHint = "Enter a FastAPI URL reachable from this phone",
+            apiAddress = "API address",
+            saveAndTest = "Save and test",
+            apiConnected = "Server connected.",
+            apiUnavailable = "Connection failed. Check the URL, Wi-Fi and firewall.",
         )
     }
 
@@ -424,6 +472,7 @@ internal fun VisionCaptionApp(
                         onClearCurrentImage = onClearCurrentImage,
                         onDismissError = onDismissError,
                         onToggleFavorite = onToggleCurrentFavorite,
+                        onModelSelected = onModelSelected,
                     )
 
                     AppDestination.History -> {
@@ -475,6 +524,7 @@ internal fun VisionCaptionApp(
                         } else {
                             AccessRequiredDestination(
                                 title = labels.history,
+                                language = language,
                                 onOpenMenu = openDrawer,
                                 onLogin = {
                                     onDestinationChange(AppDestination.Account)
@@ -525,6 +575,7 @@ internal fun VisionCaptionApp(
                         } else {
                             AccessRequiredDestination(
                                 title = labels.favorites,
+                                language = language,
                                 onOpenMenu = openDrawer,
                                 onLogin = {
                                     onDestinationChange(AppDestination.Account)
@@ -535,6 +586,7 @@ internal fun VisionCaptionApp(
 
                     AppDestination.ModelInsights ->
                         ModelInsightsDestination(
+                            language = language,
                             selectedModel = selectedModel,
                             modelSelectionEnabled = (
                                 uiState !is CaptionUiState.LoadingModel &&
@@ -552,6 +604,7 @@ internal fun VisionCaptionApp(
                         if (authSession.isAuthenticated) {
                             AuthenticatedAccountDestination(
                                 session = authSession,
+                                language = language,
                                 onOpenMenu = openDrawer,
                                 onLogout = {
                                     coroutineScope.launch {
@@ -590,6 +643,7 @@ internal fun VisionCaptionApp(
                         AdminDestination(
                             store = authStore,
                             session = authSession,
+                            language = language,
                             onOpenMenu = openDrawer,
                         )
 
@@ -601,6 +655,8 @@ internal fun VisionCaptionApp(
                         onOpenMenu = openDrawer,
                         onThemeModeChange = onThemeModeChange,
                         onLanguageChange = onLanguageChange,
+                        selectedModel = selectedModel,
+                        onModelSelected = onModelSelected,
                         onOpenAccount = {
                             onDestinationChange(AppDestination.Account)
                         },
@@ -627,9 +683,8 @@ internal fun VisionCaptionApp(
                     onThemeModeChange = onThemeModeChange,
                     onLanguageChange = onLanguageChange,
                     modifier = Modifier
-                        .align(Alignment.TopEnd)
-                        .statusBarsPadding()
-                        .padding(top = 22.dp, end = 16.dp)
+                        .align(Alignment.BottomStart)
+                        .padding(start = 16.dp, bottom = 16.dp)
                         .zIndex(10f),
                 )
             }
@@ -655,7 +710,7 @@ private fun VisionDrawer(
         ),
         Triple(
             AppDestination.ModelInsights,
-            "Mô hình",
+            labels.model,
             R.drawable.ic_info,
         ),
         Triple(AppDestination.Settings, labels.settings, R.drawable.ic_more),
@@ -722,7 +777,15 @@ private fun VisionDrawer(
             }
             if (authSession.role == UserRole.SUPER_ADMIN) {
                 NavigationDrawerItem(
-                    label = { Text("Quản trị & phân quyền") },
+                    label = {
+                        Text(
+                            if (labels.capture == "Chụp") {
+                                "Quản trị & phân quyền"
+                            } else {
+                                "User administration"
+                            },
+                        )
+                    },
                     selected = selected == AppDestination.Admin,
                     onClick = {
                         onDestinationSelected(AppDestination.Admin)
@@ -743,9 +806,13 @@ private fun VisionDrawer(
                 label = {
                     Text(
                         if (authSession.isAuthenticated) {
-                            "Đăng xuất"
+                            if (labels.capture == "Chụp") "Đăng xuất" else "Sign out"
                         } else {
-                            "Đang dùng chế độ Khách"
+                            if (labels.capture == "Chụp") {
+                                "Đang dùng chế độ Khách"
+                            } else {
+                                "Using guest mode"
+                            }
                         },
                     )
                 },
@@ -771,10 +838,11 @@ private fun VisionNavigationBar(
     onSelected: (AppDestination) -> Unit,
 ) {
     val entries = listOf(
-        Triple(AppDestination.Capture, labels.capture, R.drawable.ic_capture),
         Triple(AppDestination.History, labels.history, R.drawable.ic_history),
         Triple(AppDestination.Favorites, labels.favorites, R.drawable.ic_favorite),
-        Triple(AppDestination.Settings, labels.settings, R.drawable.ic_more),
+        Triple(AppDestination.Capture, labels.capture, R.drawable.ic_capture),
+        Triple(AppDestination.ModelInsights, labels.model, R.drawable.ic_info),
+        Triple(AppDestination.Account, labels.personal, R.drawable.ic_person),
     )
     NavigationBar(
         containerColor = MaterialTheme.colorScheme.surface,
@@ -785,11 +853,27 @@ private fun VisionNavigationBar(
                 selected = selected == destination,
                 onClick = { onSelected(destination) },
                 icon = {
-                    Icon(
-                        painter = painterResource(icon),
-                        contentDescription = label,
-                        modifier = Modifier.size(22.dp),
-                    )
+                    if (destination == AppDestination.Capture) {
+                        Surface(
+                            modifier = Modifier.size(46.dp),
+                            shape = RoundedCornerShape(15.dp),
+                            color = MaterialTheme.colorScheme.primary,
+                            contentColor = MaterialTheme.colorScheme.onPrimary,
+                            shadowElevation = 5.dp,
+                        ) {
+                            Icon(
+                                painter = painterResource(icon),
+                                contentDescription = label,
+                                modifier = Modifier.padding(11.dp),
+                            )
+                        }
+                    } else {
+                        Icon(
+                            painter = painterResource(icon),
+                            contentDescription = label,
+                            modifier = Modifier.size(22.dp),
+                        )
+                    }
                 },
                 label = {
                     Text(
@@ -821,6 +905,7 @@ private fun CaptureDestination(
     onClearCurrentImage: () -> Unit,
     onDismissError: () -> Unit,
     onToggleFavorite: (String) -> Unit,
+    onModelSelected: (CaptionModelMode) -> Unit,
 ) {
     LazyColumn(
         modifier = Modifier
@@ -838,7 +923,13 @@ private fun CaptureDestination(
             VisionHeader(onOpenMenu)
         }
         item {
-            SelectedModelBanner(selectedModel)
+            SelectedModelBanner(
+                model = selectedModel,
+                labels = labels,
+                enabled = uiState !is CaptionUiState.LoadingModel &&
+                    uiState !is CaptionUiState.Processing,
+                onModelSelected = onModelSelected,
+            )
         }
         item {
             CaptureCanvas(
@@ -878,6 +969,7 @@ private fun CaptureDestination(
                 CaptionResultCard(
                     labels = labels,
                     result = uiState.result,
+                    sourceBitmap = selectedBitmap,
                     onToggleFavorite = onToggleFavorite,
                 )
             }
@@ -904,83 +996,165 @@ private fun GlobalQuickControls(
     onLanguageChange: (AppLanguage) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    Row(
+    var expanded by remember { mutableStateOf(false) }
+    Column(
         modifier = modifier,
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(2.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        IconButton(
-            modifier = Modifier.size(48.dp),
-            onClick = {
-                onLanguageChange(
-                    if (language == AppLanguage.Vietnamese) AppLanguage.English
-                    else AppLanguage.Vietnamese,
-                )
-            },
-        ) {
-            Icon(
-                painter = painterResource(R.drawable.ic_language),
-                contentDescription = if (language == AppLanguage.Vietnamese) {
-                    "Switch to English"
-                } else {
-                    "Chuyển sang Tiếng Việt"
-                },
-            )
+        AnimatedVisibility(expanded) {
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                QuickControlButton(
+                    description = if (language == AppLanguage.Vietnamese) {
+                        "Switch to English"
+                    } else {
+                        "Chuyển sang Tiếng Việt"
+                    },
+                    onClick = {
+                        onLanguageChange(
+                            if (language == AppLanguage.Vietnamese) {
+                                AppLanguage.English
+                            } else {
+                                AppLanguage.Vietnamese
+                            },
+                        )
+                    },
+                ) {
+                    Text(
+                        text = "🇻🇳\n🇺🇸",
+                        fontSize = 15.sp,
+                        lineHeight = 16.sp,
+                        textAlign = TextAlign.Center,
+                    )
+                }
+                QuickControlButton(
+                    description = if (themeMode == AppThemeMode.Dark) labels.light else labels.dark,
+                    onClick = {
+                        onThemeModeChange(
+                            if (themeMode == AppThemeMode.Dark) {
+                                AppThemeMode.Light
+                            } else {
+                                AppThemeMode.Dark
+                            },
+                        )
+                    },
+                ) {
+                    Icon(
+                        painter = painterResource(
+                            if (themeMode == AppThemeMode.Dark) {
+                                R.drawable.ic_light_mode
+                            } else {
+                                R.drawable.ic_dark_mode
+                            },
+                        ),
+                        contentDescription = null,
+                    )
+                }
+            }
         }
-        IconButton(
-            modifier = Modifier.size(48.dp),
-            onClick = {
-                onThemeModeChange(
-                    if (themeMode == AppThemeMode.Dark) AppThemeMode.Light
-                    else AppThemeMode.Dark,
-                )
-            },
+        QuickControlButton(
+            description = if (expanded) labels.dismiss else labels.settings,
+            emphasized = true,
+            onClick = { expanded = !expanded },
         ) {
-            Icon(
-                painter = painterResource(
-                    if (themeMode == AppThemeMode.Dark) R.drawable.ic_light_mode
-                    else R.drawable.ic_dark_mode,
-                ),
-                contentDescription = if (themeMode == AppThemeMode.Dark) labels.light else labels.dark,
+            Text(
+                text = if (expanded) "×" else "+",
+                fontSize = 28.sp,
+                fontWeight = FontWeight.Medium,
             )
         }
     }
 }
 
 @Composable
-private fun SelectedModelBanner(model: CaptionModelMode) {
+private fun QuickControlButton(
+    description: String,
+    emphasized: Boolean = false,
+    onClick: () -> Unit,
+    content: @Composable () -> Unit,
+) {
     Surface(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(18.dp),
-        color = MaterialTheme.colorScheme.secondaryContainer,
+        modifier = Modifier
+            .size(48.dp)
+            .clickable(onClickLabel = description, onClick = onClick),
+        shape = CircleShape,
+        color = if (emphasized) {
+            MaterialTheme.colorScheme.primary
+        } else {
+            MaterialTheme.colorScheme.surface
+        },
+        contentColor = if (emphasized) {
+            MaterialTheme.colorScheme.onPrimary
+        } else {
+            MaterialTheme.colorScheme.onSurface
+        },
+        shadowElevation = 8.dp,
     ) {
-        Row(
-            modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(10.dp),
+        Box(
+            contentAlignment = Alignment.Center,
+            modifier = Modifier.fillMaxSize(),
         ) {
-            Column(modifier = Modifier.weight(1f)) {
+            content()
+        }
+    }
+}
+
+@Composable
+private fun SelectedModelBanner(
+    model: CaptionModelMode,
+    labels: VisionStrings,
+    enabled: Boolean,
+    onModelSelected: (CaptionModelMode) -> Unit,
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        Surface(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(18.dp),
+            color = MaterialTheme.colorScheme.secondaryContainer,
+        ) {
+            Row(
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = model.displayName,
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.Bold,
+                    )
+                    Text(
+                        text = if (model.isV2) {
+                            "${model.studentName} · ONNX Runtime INT8"
+                        } else if (labels.capture == "Chụp") {
+                            "Mô hình tham chiếu · ONNX FP32"
+                        } else {
+                            "Reference model · ONNX FP32"
+                        },
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSecondaryContainer,
+                    )
+                }
                 Text(
-                    text = model.displayName,
-                    style = MaterialTheme.typography.titleSmall,
-                    fontWeight = FontWeight.Bold,
-                )
-                Text(
-                    text = if (model.isV2) {
-                        "${model.studentName} · ONNX Runtime INT8"
-                    } else {
-                        "Mô hình tham chiếu · ONNX FP32"
-                    },
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSecondaryContainer,
+                    text = if (model.isV2) "V2" else "V1",
+                    style = MaterialTheme.typography.labelLarge,
+                    fontWeight = FontWeight.ExtraBold,
+                    color = MaterialTheme.colorScheme.primary,
                 )
             }
-            Text(
-                text = if (model.isV2) "V2" else "V1",
-                style = MaterialTheme.typography.labelLarge,
-                fontWeight = FontWeight.ExtraBold,
-                color = MaterialTheme.colorScheme.primary,
-            )
+        }
+        LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            items(CaptionModelMode.selectableModes) { option ->
+                FilterChip(
+                    selected = model == option,
+                    enabled = enabled,
+                    onClick = { onModelSelected(option) },
+                    label = { Text(option.displayName, maxLines = 1) },
+                )
+            }
         }
     }
 }
@@ -1020,7 +1194,7 @@ private fun VisionHeader(
             )
         }
         Spacer(Modifier.weight(1f))
-        Spacer(Modifier.size(104.dp))
+        Spacer(Modifier.size(48.dp))
     }
 }
 
@@ -1211,12 +1385,31 @@ private fun CaptureActions(
 private fun CaptionResultCard(
     labels: VisionStrings,
     result: CaptionPresentation,
+    sourceBitmap: Bitmap?,
     onToggleFavorite: (String) -> Unit,
 ) {
     val clipboard = LocalClipboardManager.current
     val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    val speaker = remember(context) { CaptionSpeaker(context) }
     var copied by remember(result.caption) { mutableStateOf(false) }
     var detailsExpanded by remember(result.caption) { mutableStateOf(false) }
+    var translatedCaption by remember(result.caption) { mutableStateOf<String?>(null) }
+    var translationFailed by remember(result.caption) { mutableStateOf(false) }
+    var translating by remember(result.caption) { mutableStateOf(true) }
+    DisposableEffect(speaker) {
+        onDispose { speaker.shutdown() }
+    }
+    LaunchedEffect(result.caption) {
+        translating = true
+        translationFailed = false
+        translatedCaption = runCatching {
+            translateCaptionToVietnamese(result.caption)
+        }.onFailure {
+            translationFailed = true
+        }.getOrNull()
+        translating = false
+    }
     Card(
         modifier = Modifier
             .fillMaxWidth()
@@ -1284,19 +1477,125 @@ private fun CaptionResultCard(
                     }
                 }
             }
-            Text(
-                text = result.caption,
-                style = MaterialTheme.typography.headlineSmall,
-                lineHeight = 31.sp,
-                fontWeight = FontWeight.Medium,
-            )
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(
+                    text = labels.englishCaption,
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.primary,
+                    fontWeight = FontWeight.Bold,
+                )
+                Text(
+                    text = result.caption,
+                    style = MaterialTheme.typography.headlineSmall,
+                    lineHeight = 31.sp,
+                    fontWeight = FontWeight.Medium,
+                )
+                HorizontalDivider(
+                    modifier = Modifier.padding(vertical = 4.dp),
+                    color = MaterialTheme.colorScheme.outlineVariant,
+                )
+                Text(
+                    text = labels.vietnameseTranslation,
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.primary,
+                    fontWeight = FontWeight.Bold,
+                )
+                when {
+                    translating -> Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(9.dp),
+                    ) {
+                        CircularProgressIndicator(modifier = Modifier.size(18.dp))
+                        Text(
+                            text = labels.translating,
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+
+                    translatedCaption != null -> Text(
+                        text = translatedCaption.orEmpty(),
+                        style = MaterialTheme.typography.titleMedium,
+                        lineHeight = 25.sp,
+                    )
+
+                    translationFailed -> Text(
+                        text = labels.translationUnavailable,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.error,
+                    )
+                }
+            }
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
+                OutlinedButton(
+                    onClick = {
+                        if (!speaker.speak(result.caption, Locale.US)) {
+                            Toast.makeText(
+                                context,
+                                labels.speechUnavailable,
+                                Toast.LENGTH_SHORT,
+                            ).show()
+                        }
+                    },
+                    shape = RoundedCornerShape(16.dp),
+                    modifier = Modifier.weight(1f),
+                ) {
+                    Icon(
+                        painter = painterResource(R.drawable.ic_volume),
+                        contentDescription = labels.listenEnglish,
+                        modifier = Modifier.size(18.dp),
+                    )
+                    Spacer(Modifier.width(7.dp))
+                    Text("EN")
+                }
+                OutlinedButton(
+                    onClick = {
+                        if (
+                            !speaker.speak(
+                                translatedCaption.orEmpty(),
+                                Locale.forLanguageTag("vi-VN"),
+                            )
+                        ) {
+                            Toast.makeText(
+                                context,
+                                labels.speechUnavailable,
+                                Toast.LENGTH_SHORT,
+                            ).show()
+                        }
+                    },
+                    enabled = !translatedCaption.isNullOrBlank(),
+                    shape = RoundedCornerShape(16.dp),
+                    modifier = Modifier.weight(1f),
+                ) {
+                    Icon(
+                        painter = painterResource(R.drawable.ic_volume),
+                        contentDescription = labels.listenVietnamese,
+                        modifier = Modifier.size(18.dp),
+                    )
+                    Spacer(Modifier.width(7.dp))
+                    Text("VI")
+                }
+            }
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(10.dp),
             ) {
                 FilledTonalButton(
                     onClick = {
-                        clipboard.setText(AnnotatedString(result.caption))
+                        clipboard.setText(
+                            AnnotatedString(
+                                buildString {
+                                    append(result.caption)
+                                    translatedCaption?.takeIf(String::isNotBlank)?.let {
+                                        append("\n\n")
+                                        append(it)
+                                    }
+                                },
+                            ),
+                        )
                         copied = true
                     },
                     shape = RoundedCornerShape(16.dp),
@@ -1312,13 +1611,31 @@ private fun CaptionResultCard(
                 }
                 Button(
                     onClick = {
-                        val share = Intent(Intent.ACTION_SEND).apply {
-                            type = "text/plain"
-                            putExtra(Intent.EXTRA_TEXT, result.caption)
+                        scope.launch {
+                            val share = if (sourceBitmap != null) {
+                                withContext(Dispatchers.IO) {
+                                    context.createCaptionShareIntent(
+                                        source = sourceBitmap,
+                                        englishCaption = result.caption,
+                                        vietnameseCaption = translatedCaption,
+                                    )
+                                }
+                            } else {
+                                Intent(Intent.ACTION_SEND).apply {
+                                    type = "text/plain"
+                                    putExtra(
+                                        Intent.EXTRA_TEXT,
+                                        listOfNotNull(
+                                            result.caption,
+                                            translatedCaption,
+                                        ).joinToString("\n\n"),
+                                    )
+                                }
+                            }
+                            context.startActivity(
+                                Intent.createChooser(share, labels.share),
+                            )
                         }
-                        context.startActivity(
-                            Intent.createChooser(share, labels.share),
-                        )
                     },
                     shape = RoundedCornerShape(16.dp),
                     colors = ButtonDefaults.buttonColors(
@@ -1378,7 +1695,7 @@ private fun TechnicalGrid(
         0.0
     }
     Column(verticalArrangement = Arrangement.spacedBy(9.dp)) {
-        MetricSectionTitle("MODEL & RUNTIME")
+        MetricSectionTitle("MODEL & RUNTIME", labels)
         TechnicalRow("Model", contract.model)
         TechnicalRow("Runtime", contract.runtime)
         TechnicalRow("Execution provider", "CPUExecutionProvider")
@@ -1388,7 +1705,7 @@ private fun TechnicalGrid(
         TechnicalRow("Vocabulary", contract.vocabulary)
         TechnicalRow("Processing", "Offline · on-device")
 
-        MetricSectionTitle("INPUT & PREPROCESSING")
+        MetricSectionTitle("INPUT & PREPROCESSING", labels)
         TechnicalRow(
             "Source image",
             "${result.sourceWidth} × ${result.sourceHeight} · ${result.source.label}",
@@ -1400,7 +1717,7 @@ private fun TechnicalGrid(
         TechnicalRow("Encoder input", contract.encoderInput)
         TechnicalRow("Visual memory", contract.visualMemory)
 
-        MetricSectionTitle("DECODER & BEAM SEARCH")
+        MetricSectionTitle("DECODER & BEAM SEARCH", labels)
         TechnicalRow("Decoder input IDs", "int64 [1,31]")
         TechnicalRow("Attention mask", contract.attentionMask)
         TechnicalRow("Decoder logits", contract.decoderLogits)
@@ -1411,7 +1728,7 @@ private fun TechnicalGrid(
         TechnicalRow("Forbidden token IDs", "[0, 1, 3]")
         TechnicalRow("BOS / EOS / PAD", "1 / 2 / 0")
 
-        MetricSectionTitle("CAPTION OUTPUT")
+        MetricSectionTitle("CAPTION OUTPUT", labels)
         TechnicalRow("Word count", result.wordCount.toString())
         TechnicalRow("Generated token count", result.tokenIds.size.toString())
         TechnicalRow("EOS position", result.eosPosition.toString())
@@ -1431,7 +1748,7 @@ private fun TechnicalGrid(
             fontFamily = FontFamily.Monospace,
         )
 
-        MetricSectionTitle("LATENCY")
+        MetricSectionTitle("LATENCY", labels)
         TechnicalRow("Model load", formatMs(result.modelLoadMs))
         TechnicalRow("Preprocessing", formatMs(result.preprocessingMs))
         TechnicalRow("Encoder", formatMs(result.encoderMs))
@@ -1519,7 +1836,10 @@ private fun runtimeContractFor(modelLabel: String): CaptionRuntimeContract {
 }
 
 @Composable
-private fun MetricSectionTitle(title: String) {
+private fun MetricSectionTitle(
+    title: String,
+    labels: VisionStrings,
+) {
     var expanded by remember(title) { mutableStateOf(false) }
     Column(modifier = Modifier.fillMaxWidth()) {
         Row(
@@ -1552,7 +1872,10 @@ private fun MetricSectionTitle(title: String) {
         }
         AnimatedVisibility(expanded) {
             Text(
-                text = metricExplanation(title),
+                text = metricExplanation(
+                    title = title,
+                    vietnamese = labels.capture == "Chụp",
+                ),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(top = 5.dp, bottom = 3.dp),
@@ -1561,20 +1884,41 @@ private fun MetricSectionTitle(title: String) {
     }
 }
 
-private fun metricExplanation(title: String): String = when (title) {
-    "MODEL & RUNTIME" ->
-        "Mô hình, bộ thực thi, số tham số và các tệp ONNX đang trực tiếp tạo kết quả trên thiết bị."
-    "INPUT & PREPROCESSING" ->
-        "Kích thước ảnh gốc, phép đổi kích thước/cắt giữa, chuẩn hóa và hình dạng tensor đưa vào encoder."
-    "DECODER & BEAM SEARCH" ->
-        "Cấu hình sinh chuỗi: token đầu vào, attention mask, logits, beam size, giới hạn độ dài và token đặc biệt."
-    "CAPTION OUTPUT", "CAPTION" ->
-        "Thông tin đầu ra gồm số từ/token, vị trí EOS và điểm log-xác suất trước/sau chuẩn hóa độ dài."
-    "MODEL & TENSORS" ->
-        "Hình dạng và kiểu dữ liệu của tensor đi qua encoder, visual memory và decoder."
-    "LATENCY" ->
-        "Thời gian tính bằng mili-giây: tải mô hình, tiền xử lý, encoder, decoder và hai lượt suy luận; lượt 2 phản ánh phiên đã làm nóng."
-    else -> "Thông tin kỹ thuật dùng để kiểm chứng đầu ra và khả năng tái lập."
+private fun metricExplanation(
+    title: String,
+    vietnamese: Boolean,
+): String = if (vietnamese) {
+    when (title) {
+        "MODEL & RUNTIME" ->
+            "Mô hình, bộ thực thi, số tham số và tệp ONNX đang tạo kết quả trên thiết bị."
+        "INPUT & PREPROCESSING" ->
+            "Kích thước ảnh, đổi kích thước, cắt giữa, chuẩn hóa và tensor đầu vào encoder."
+        "DECODER & BEAM SEARCH" ->
+            "Token đầu vào, attention mask, logits, beam size, độ dài và token đặc biệt."
+        "CAPTION OUTPUT", "CAPTION" ->
+            "Số từ/token, vị trí EOS và điểm log-xác suất trước/sau chuẩn hóa độ dài."
+        "MODEL & TENSORS" ->
+            "Hình dạng và kiểu dữ liệu tensor qua encoder, visual memory và decoder."
+        "LATENCY" ->
+            "Thời gian tải, tiền xử lý, encoder, decoder và hai lượt suy luận; lượt 2 là phiên đã làm nóng."
+        else -> "Thông tin kỹ thuật dùng để kiểm chứng đầu ra và khả năng tái lập."
+    }
+} else {
+    when (title) {
+        "MODEL & RUNTIME" ->
+            "The model, runtime, parameter count and ONNX files producing the on-device result."
+        "INPUT & PREPROCESSING" ->
+            "Source size, resize, center crop, normalization and encoder input tensor."
+        "DECODER & BEAM SEARCH" ->
+            "Input tokens, attention mask, logits, beam size, length limits and special tokens."
+        "CAPTION OUTPUT", "CAPTION" ->
+            "Word/token count, EOS position and log-probability scores before and after length normalization."
+        "MODEL & TENSORS" ->
+            "Tensor shapes and data types through the encoder, visual memory and decoder."
+        "LATENCY" ->
+            "Model load, preprocessing, encoder, decoder and two inference runs; run 2 is the warmed session."
+        else -> "Technical data used to verify output and repeatability."
+    }
 }
 
 @Composable
@@ -1992,8 +2336,6 @@ private fun ScreenTitle(
             }
         }
         trailingAction?.invoke()
-        // Reserve the top-right slot for the global light/dark control.
-        Spacer(Modifier.size(104.dp))
     }
 }
 
@@ -2145,7 +2487,7 @@ private fun HistoryTechnicalGrid(
         modifier = modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(7.dp),
     ) {
-        MetricSectionTitle("CAPTION")
+        MetricSectionTitle("CAPTION", labels)
         TechnicalRow("Created", historyTimestamp(item, labels))
         TechnicalRow("Source", historySourceLabel(item, labels))
         TechnicalRow(
@@ -2197,7 +2539,7 @@ private fun HistoryTechnicalGrid(
                 fontFamily = FontFamily.Monospace,
             )
         }
-        MetricSectionTitle("MODEL & TENSORS")
+        MetricSectionTitle("MODEL & TENSORS", labels)
         TechnicalRow("Model", contract.model)
         TechnicalRow("Runtime", contract.runtime)
         TechnicalRow("Encoder input", contract.encoderInput)
@@ -2205,7 +2547,7 @@ private fun HistoryTechnicalGrid(
         TechnicalRow("Attention mask", contract.attentionMask)
         TechnicalRow("Decoder logits", contract.decoderLogits)
         TechnicalRow("Beam configuration", "3 · LP 0.7 · min 2")
-        MetricSectionTitle("LATENCY")
+        MetricSectionTitle("LATENCY", labels)
         TechnicalRow(
             "Model load",
             formatStoredMs(item.modelLoadMs, labels),
@@ -2293,13 +2635,20 @@ private fun SettingsDestination(
     themeMode: AppThemeMode,
     language: AppLanguage,
     authSession: AuthSession,
+    selectedModel: CaptionModelMode,
     onOpenMenu: () -> Unit,
     onThemeModeChange: (AppThemeMode) -> Unit,
     onLanguageChange: (AppLanguage) -> Unit,
+    onModelSelected: (CaptionModelMode) -> Unit,
     onOpenAccount: () -> Unit,
     onOpenAdmin: () -> Unit,
     onLogout: () -> Unit,
 ) {
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    var apiUrl by remember { mutableStateOf(CentralApiSettings.load(context)) }
+    var checkingApi by remember { mutableStateOf(false) }
+    var apiStatus by remember { mutableStateOf<String?>(null) }
     LazyColumn(
         modifier = Modifier
             .fillMaxSize()
@@ -2377,6 +2726,78 @@ private fun SettingsDestination(
         }
         item {
             SettingsCard(
+                icon = R.drawable.ic_info,
+                title = labels.model,
+                hint = selectedModel.displayName,
+            ) {
+                LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    items(CaptionModelMode.selectableModes) { option ->
+                        FilterChip(
+                            selected = selectedModel == option,
+                            onClick = { onModelSelected(option) },
+                            label = { Text(option.displayName, maxLines = 1) },
+                        )
+                    }
+                }
+            }
+        }
+        item {
+            SettingsCard(
+                icon = R.drawable.ic_info,
+                title = labels.apiConnection,
+                hint = labels.apiConnectionHint,
+            ) {
+                OutlinedTextField(
+                    value = apiUrl,
+                    onValueChange = {
+                        apiUrl = it
+                        apiStatus = null
+                    },
+                    label = { Text(labels.apiAddress) },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                Button(
+                    enabled = !checkingApi && apiUrl.isNotBlank(),
+                    onClick = {
+                        scope.launch {
+                            checkingApi = true
+                            apiStatus = runCatching {
+                                apiUrl = CentralApiSettings.save(context, apiUrl)
+                                check(CentralApiClient(context).health())
+                                labels.apiConnected
+                            }.getOrElse {
+                                labels.apiUnavailable
+                            }
+                            checkingApi = false
+                        }
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    if (checkingApi) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(18.dp),
+                            strokeWidth = 2.dp,
+                        )
+                        Spacer(Modifier.width(8.dp))
+                    }
+                    Text(labels.saveAndTest)
+                }
+                apiStatus?.let { status ->
+                    Text(
+                        text = status,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = if (status == labels.apiConnected) {
+                            MaterialTheme.colorScheme.primary
+                        } else {
+                            MaterialTheme.colorScheme.error
+                        },
+                    )
+                }
+            }
+        }
+        item {
+            SettingsCard(
                 icon = R.drawable.ic_palette,
                 title = labels.appearance,
                 hint = labels.appearanceHint,
@@ -2417,7 +2838,7 @@ private fun SettingsDestination(
             ) {
                 ChoiceRow {
                     CompactTextChoice(
-                        label = "VI",
+                        label = "🇻🇳 VI",
                         description = labels.vietnamese,
                         selected = language == AppLanguage.Vietnamese,
                         onClick = {
@@ -2425,7 +2846,7 @@ private fun SettingsDestination(
                         },
                     )
                     CompactTextChoice(
-                        label = "EN",
+                        label = "🇺🇸 EN",
                         description = labels.english,
                         selected = language == AppLanguage.English,
                         onClick = {

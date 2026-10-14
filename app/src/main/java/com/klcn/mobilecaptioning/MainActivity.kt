@@ -125,6 +125,7 @@ private fun Phase8InteractiveScreen(
     modifier: Modifier = Modifier,
 ) {
     val context = LocalContext.current
+    val vietnamese = language == AppLanguage.Vietnamese
     val coroutineScope = rememberCoroutineScope()
     val centralSync = remember { CentralSyncRepository(context) }
     var selectedBitmap by remember { mutableStateOf<Bitmap?>(null) }
@@ -180,8 +181,16 @@ private fun Phase8InteractiveScreen(
             uiState = CaptionUiState.Ready(modelLoadMs)
         } catch (error: Throwable) {
             uiState = CaptionUiState.Error(
-                title = "Không thể khởi tạo mô hình",
-                message = "Vui lòng thử lại hoặc chọn mô hình khác.",
+                title = if (vietnamese) {
+                    "Không thể khởi tạo mô hình"
+                } else {
+                    "Unable to initialize model"
+                },
+                message = if (vietnamese) {
+                    "Vui lòng thử lại hoặc chọn mô hình khác."
+                } else {
+                    "Please retry or select another model."
+                },
             )
         }
     }
@@ -197,8 +206,12 @@ private fun Phase8InteractiveScreen(
                 uiState = CaptionUiState.Ready(currentModelLoadMs(selectedModel))
             } catch (error: Throwable) {
                 uiState = CaptionUiState.Error(
-                    title = "Không thể đọc ảnh",
-                    message = "Vui lòng chọn một ảnh hợp lệ.",
+                    title = if (vietnamese) "Không thể đọc ảnh" else "Unable to open image",
+                    message = if (vietnamese) {
+                        "Vui lòng chọn một ảnh hợp lệ."
+                    } else {
+                        "Please select a valid image."
+                    },
                 )
             }
         }
@@ -251,25 +264,41 @@ private fun Phase8InteractiveScreen(
                 Toast.makeText(
                     context,
                     if (storedItem == null) {
-                        "Đã tạo chú thích. Chế độ Khách không lưu lịch sử."
+                        if (vietnamese) {
+                            "Đã tạo chú thích. Chế độ Khách không lưu lịch sử."
+                        } else {
+                            "Caption created. Guest mode does not save history."
+                        }
                     } else {
-                        "Đã tạo và lưu chú thích."
+                        if (vietnamese) {
+                            "Đã tạo và lưu chú thích."
+                        } else {
+                            "Caption created and saved."
+                        }
                     },
                     Toast.LENGTH_SHORT,
                 ).show()
                 authStore.recordActivity(
                     authSession,
                     "CAPTION_CREATE",
-                    "Tạo mô tả bằng ${selectedModel.displayName} từ ${source.name}",
+                    if (vietnamese) {
+                        "Tạo mô tả bằng ${selectedModel.displayName} từ ${source.name}"
+                    } else {
+                        "Created a caption with ${selectedModel.displayName} from ${source.name}"
+                    },
                 )
                 } catch (error: Throwable) {
                     uiState = CaptionUiState.Error(
-                        title = "Không thể tạo chú thích",
-                        message = "Vui lòng thử lại.",
+                        title = if (vietnamese) {
+                            "Không thể tạo chú thích"
+                        } else {
+                            "Unable to generate caption"
+                        },
+                        message = if (vietnamese) "Vui lòng thử lại." else "Please try again.",
                     )
                     Toast.makeText(
                         context,
-                        "Không thể tạo chú thích.",
+                        if (vietnamese) "Không thể tạo chú thích." else "Unable to generate caption.",
                         Toast.LENGTH_SHORT,
                     ).show()
                 }
@@ -318,7 +347,11 @@ private fun Phase8InteractiveScreen(
                 authStore.recordActivity(
                     authSession,
                     "MODEL_SELECT",
-                    "Chọn mô hình ${updatedModel.displayName}",
+                    if (vietnamese) {
+                        "Chọn mô hình ${updatedModel.displayName}"
+                    } else {
+                        "Selected model ${updatedModel.displayName}"
+                    },
                 )
                 selectedModel = updatedModel
                 AppPreferences.saveModel(
@@ -331,7 +364,11 @@ private fun Phase8InteractiveScreen(
                 uiState = CaptionUiState.LoadingModel
                 Toast.makeText(
                     context,
-                    "Đã chọn ${updatedModel.displayName}.",
+                    if (vietnamese) {
+                        "Đã chọn ${updatedModel.displayName}."
+                    } else {
+                        "Selected ${updatedModel.displayName}."
+                    },
                     Toast.LENGTH_SHORT,
                 ).show()
             }
@@ -359,8 +396,12 @@ private fun Phase8InteractiveScreen(
                 cameraLauncher.launch(imageUri)
             } catch (error: Throwable) {
                 uiState = CaptionUiState.Error(
-                    title = "Không thể mở Camera",
-                    message = "Vui lòng kiểm tra quyền Camera và thử lại.",
+                    title = if (vietnamese) "Không thể mở Camera" else "Unable to open camera",
+                    message = if (vietnamese) {
+                        "Vui lòng kiểm tra quyền Camera và thử lại."
+                    } else {
+                        "Check camera permission and try again."
+                    },
                 )
             }
         },
@@ -394,12 +435,16 @@ private fun Phase8InteractiveScreen(
             authStore.recordActivity(
                 authSession,
                 "FAVORITE_UPDATE",
-                "Cập nhật trạng thái yêu thích",
+                if (vietnamese) "Cập nhật trạng thái yêu thích" else "Updated favorite status",
             )
             coroutineScope.launch { centralSync.flush(authSession.ownerId) }
             Toast.makeText(
                 context,
-                if (favorite) "Đã thêm vào yêu thích." else "Đã bỏ khỏi yêu thích.",
+                if (vietnamese) {
+                    if (favorite) "Đã thêm vào yêu thích." else "Đã bỏ khỏi yêu thích."
+                } else {
+                    if (favorite) "Added to favorites." else "Removed from favorites."
+                },
                 Toast.LENGTH_SHORT,
             ).show()
         },
@@ -412,10 +457,18 @@ private fun Phase8InteractiveScreen(
             authStore.recordActivity(
                 authSession,
                 "FAVORITE_UPDATE",
-                "Cập nhật mục yêu thích trong lịch sử",
+                if (vietnamese) {
+                    "Cập nhật mục yêu thích trong lịch sử"
+                } else {
+                    "Updated a favorite in history"
+                },
             )
             coroutineScope.launch { centralSync.flush(authSession.ownerId) }
-            Toast.makeText(context, "Đã cập nhật mục yêu thích.", Toast.LENGTH_SHORT).show()
+            Toast.makeText(
+                context,
+                if (vietnamese) "Đã cập nhật mục yêu thích." else "Favorite updated.",
+                Toast.LENGTH_SHORT,
+            ).show()
         },
         onDeleteHistoryItem = { historyId ->
             historyItems = CaptionHistoryStore.delete(
@@ -438,10 +491,14 @@ private fun Phase8InteractiveScreen(
             authStore.recordActivity(
                 authSession,
                 "HISTORY_DELETE",
-                "Xóa một mục lịch sử",
+                if (vietnamese) "Xóa một mục lịch sử" else "Deleted a history item",
             )
             coroutineScope.launch { centralSync.flush(authSession.ownerId) }
-            Toast.makeText(context, "Đã xóa mục lịch sử.", Toast.LENGTH_SHORT).show()
+            Toast.makeText(
+                context,
+                if (vietnamese) "Đã xóa mục lịch sử." else "History item deleted.",
+                Toast.LENGTH_SHORT,
+            ).show()
         },
         onClearHistory = {
             CaptionHistoryStore.clear(context, authSession.ownerId)
@@ -458,10 +515,14 @@ private fun Phase8InteractiveScreen(
             authStore.recordActivity(
                 authSession,
                 "HISTORY_CLEAR",
-                "Xóa toàn bộ lịch sử",
+                if (vietnamese) "Xóa toàn bộ lịch sử" else "Cleared all history",
             )
             coroutineScope.launch { centralSync.flush(authSession.ownerId) }
-            Toast.makeText(context, "Đã xóa toàn bộ lịch sử.", Toast.LENGTH_SHORT).show()
+            Toast.makeText(
+                context,
+                if (vietnamese) "Đã xóa toàn bộ lịch sử." else "History cleared.",
+                Toast.LENGTH_SHORT,
+            ).show()
         },
     )
 }
