@@ -6,8 +6,10 @@
   "default_v2_research_pair": "T1-S1",
   "v1_fallback_required": true,
   "v2_vocabulary": {
-    "asset_path": "assets/v2_word_vocabulary_minfreq5.json",
+    "asset_path": "v2/v2_word_vocabulary_minfreq5.json",
     "size": 10080,
+    "size_bytes": 147712,
+    "sha256": "1c6c7e6146d2700932c82be6f076d93153c757c10a1844076abaea9c11496f97",
     "field": "id_to_token",
     "special_token_ids": {
       "pad": 0,
@@ -21,24 +23,26 @@
       "pair": "T1-S1",
       "student_id": "S1",
       "seed": 123,
-      "strategy": "encoder_decoder_dynamic_int8_linear",
+      "strategy": "dynamic_weight_int8",
       "encoder": {
-        "asset_path": "assets/t1_s1/encoder_int8.onnx",
-        "size_bytes": 12482289,
-        "sha256": "16390358c41161a54e7af0598ff87336d22bcdb3ad837f7d6917d75edcd217eb"
+        "asset_path": "v2/t1_s1/encoder_int8.onnx",
+        "size_bytes": 12191812,
+        "sha256": "b015b503e8af8e9d86db04cbb00bd7a1f80d92e3274c590f84cfedf7f237efd4"
       },
       "decoder": {
-        "asset_path": "assets/t1_s1/decoder_int8.onnx",
-        "size_bytes": 15463940,
-        "sha256": "0184a94a7ae7dfc5560dfba9aebae9222337e34de4d242f2b3b5c912adcec261"
+        "asset_path": "v2/t1_s1/decoder_int8.onnx",
+        "size_bytes": 16343142,
+        "sha256": "ee7a324290aeae95613b5de1f8bcb88f1e88bf1652c98a9fe55389412c25d2cd"
       },
-      "preprocessing_contract": "contracts/t1_s1/preprocessing.json",
-      "runtime_contract": "contracts/t1_s1/mobile_runtime_contract.json",
+      "preprocessing_contract": "v2/t1_s1/preprocessing.json",
+      "runtime_contract": "v2/t1_s1/mobile_runtime_contract.json",
       "validation": {
-        "CIDEr-D": 1.1092022261075705,
-        "BLEU-4": 0.3464033873013923,
-        "CE": 2.354636709833465,
-        "package_reduction_fraction": 0.23013484706032017
+        "CIDEr-D": 1.0844795254322963,
+        "BLEU-4": 0.3397668328851314,
+        "CE": 2.99363002553186,
+        "package_reduction_fraction": 0.38371905577875276,
+        "quality_gate_passed": true,
+        "validation_images": 5000
       }
     },
     {
@@ -92,6 +96,7 @@
   ],
   "direct_asset_swap_allowed": false,
   "physical_android_benchmark_performed": false,
-  "test_set_status": "sealed",
-  "test_set_used": false
+  "prior_test_open_count": 1,
+  "new_test_opening": false,
+  "test_status": "locked_after_authorized_one_time_evaluation"
 }

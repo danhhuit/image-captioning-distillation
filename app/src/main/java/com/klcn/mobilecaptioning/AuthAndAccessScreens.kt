@@ -68,9 +68,7 @@ import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -179,6 +177,8 @@ internal fun AuthDestination(
                     mode = it
                     challenge = null
                     otp = ""
+                    password = ""
+                    confirmPassword = ""
                     message = null
                 },
             )
@@ -207,6 +207,8 @@ internal fun AuthDestination(
                                     mode = AuthMode.FORGOT
                                     challenge = null
                                     otp = ""
+                                    password = ""
+                                    confirmPassword = ""
                                     message = null
                                 },
                                 modifier = Modifier.align(Alignment.End),
@@ -373,34 +375,34 @@ internal fun AuthDestination(
                             AuthTextField(
                                 value = identifier,
                                 onValueChange = { identifier = it },
-                                label = if (vietnamese) "Username hoặc email" else "Username or email",
+                                label = "Email",
+                                keyboardType = KeyboardType.Email,
+                                enabled = challenge == null,
                             )
                             if (challenge == null) {
                                 Button(
                                     onClick = {
-                                        challenge = store.requestOtp(identifier)
-                                        message = if (vietnamese) {
-                                            "Đã tạo mã khôi phục tạm thời."
-                                        } else {
-                                            "A temporary recovery code was created."
+                                        loading = true
+                                        scope.launch {
+                                            val result = store.requestPasswordResetCentral(identifier)
+                                            handle(result.operation)
+                                            challenge = result.challenge
+                                            loading = false
                                         }
-                                        Toast.makeText(
-                                            context,
-                                            message,
-                                            Toast.LENGTH_SHORT,
-                                        ).show()
                                     },
                                     modifier = Modifier.fillMaxWidth(),
-                                    enabled = identifier.isNotBlank(),
+                                    enabled = identifier.isNotBlank() && !loading,
                                     shape = RoundedCornerShape(16.dp),
                                 ) {
-                                    Text(if (vietnamese) "Nhận mã khôi phục" else "Get recovery code")
+                                    Text(if (vietnamese) "Gửi mã xác minh" else "Send verification code")
                                 }
                             } else {
                                 RecoveryCodeNotice(challenge!!, language)
                                 AuthTextField(
                                     value = otp,
-                                    onValueChange = { otp = it },
+                                    onValueChange = {
+                                        otp = it.filter(Char::isDigit).take(6)
+                                    },
                                     label = if (vietnamese) "Mã xác minh" else "Verification code",
                                     keyboardType = KeyboardType.Number,
                                 )
@@ -410,28 +412,84 @@ internal fun AuthDestination(
                                     label = if (vietnamese) "Mật khẩu mới" else "New password",
                                     password = true,
                                 )
+                                AuthTextField(
+                                    value = confirmPassword,
+                                    onValueChange = { confirmPassword = it },
+                                    label = if (vietnamese) {
+                                        "Xác nhận mật khẩu mới"
+                                    } else {
+                                        "Confirm new password"
+                                    },
+                                    password = true,
+                                )
                                 Button(
                                     onClick = {
                                         loading = true
                                         scope.launch {
-                                            val operation = withContext(
-                                                Dispatchers.Default,
-                                            ) {
-                                                store.resetPassword(
-                                                    identifier,
-                                                    challenge!!,
-                                                    otp,
-                                                    password,
-                                                )
-                                            }
+                                            val operation = store.resetPasswordCentral(
+                                                challenge = challenge!!,
+                                                enteredCode = otp,
+                                                newPassword = password,
+                                                confirmPassword = confirmPassword,
+                                            )
                                             handle(operation)
+                                            if (operation.success) {
+                                                mode = AuthMode.SIGN_IN
+                                                challenge = null
+                                                otp = ""
+                                                password = ""
+                                                confirmPassword = ""
+                                            }
                                             loading = false
                                         }
                                     },
                                     modifier = Modifier.fillMaxWidth(),
+                                    enabled = otp.length == 6 &&
+                                        password.isNotBlank() &&
+                                        confirmPassword.isNotBlank() &&
+                                        !loading,
                                     shape = RoundedCornerShape(16.dp),
                                 ) {
                                     Text(if (vietnamese) "Đặt lại mật khẩu" else "Reset password")
+                                }
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically,
+                                ) {
+                                    TextButton(
+                                        onClick = {
+                                            loading = true
+                                            scope.launch {
+                                                val result = store.requestPasswordResetCentral(identifier)
+                                                handle(result.operation)
+                                                challenge = result.challenge ?: challenge
+                                                otp = ""
+                                                loading = false
+                                            }
+                                        },
+                                        enabled = !loading,
+                                    ) {
+                                        Text(if (vietnamese) "Gửi lại mã" else "Resend code")
+                                    }
+                                    TextButton(
+                                        onClick = {
+                                            challenge = null
+                                            otp = ""
+                                            password = ""
+                                            confirmPassword = ""
+                                            message = null
+                                        },
+                                        enabled = !loading,
+                                    ) {
+                                        Text(
+                                            if (vietnamese) {
+                                                "Đổi tài khoản/email"
+                                            } else {
+                                                "Change account/email"
+                                            },
+                                        )
+                                    }
                                 }
                             }
                         }
@@ -582,6 +640,7 @@ private fun AuthTextField(
     label: String,
     keyboardType: KeyboardType = KeyboardType.Text,
     password: Boolean = false,
+    enabled: Boolean = true,
 ) {
     var passwordVisible by remember { mutableStateOf(false) }
     OutlinedTextField(
@@ -589,6 +648,7 @@ private fun AuthTextField(
         onValueChange = onValueChange,
         label = { Text(label) },
         modifier = Modifier.fillMaxWidth(),
+        enabled = enabled,
         singleLine = true,
         visualTransformation = if (password && !passwordVisible) {
             PasswordVisualTransformation()
@@ -635,17 +695,21 @@ private fun RecoveryCodeNotice(
         Column(modifier = Modifier.padding(13.dp)) {
             Text(
                 if (vietnamese) {
-                    "Mã khôi phục tạm thời: ${challenge.code}"
+                    challenge.emailHint?.let {
+                        "Mã xác minh đã được gửi đến $it"
+                    } ?: "Mã xác minh đã được gửi đến email đăng ký"
                 } else {
-                    "Temporary recovery code: ${challenge.code}"
+                    challenge.emailHint?.let {
+                        "A verification code was sent to $it"
+                    } ?: "A verification code was sent to the registered email"
                 },
                 fontWeight = FontWeight.Bold,
             )
             Text(
                 if (vietnamese) {
-                    "Khi triển khai chính thức, mã này phải được gửi qua email và không hiển thị tại đây."
+                    "Mã gồm 6 chữ số, có hiệu lực trong 10 phút và chỉ được dùng một lần."
                 } else {
-                    "In production this code must be sent by email and must not be displayed here."
+                    "The 6-digit code is valid for 10 minutes and can only be used once."
                 },
                 style = MaterialTheme.typography.bodySmall,
             )
@@ -828,7 +892,7 @@ internal fun ModelInsightsDestination(
     val totalRamGb = memoryInfo.totalMem.toDouble() / 1024 / 1024 / 1024
     val availableRamGb = memoryInfo.availMem.toDouble() / 1024 / 1024 / 1024
     val studentAssetBytes = selectedModel.packageBytes ?: v1StudentAssetBytes
-    val studentSizeMb = studentAssetBytes.toDouble() / 1024 / 1024
+    val studentSizeMb = studentAssetBytes.toDouble() / 1_000_000.0
 
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
@@ -874,7 +938,10 @@ internal fun ModelInsightsDestination(
                     selectedModel.teacherName
                 },
                 badge = "GPU / Server",
-                weight = if (vietnamese) {
+                weight = selectedModel.teacherPackageMb?.let { sizeMb ->
+                    "${"%,.2f".format(sizeMb)} MB · " +
+                        if (vietnamese) "checkpoint Teacher" else "Teacher checkpoint"
+                } ?: if (vietnamese) {
                     "Mô hình tham chiếu chất lượng cao"
                 } else {
                     "High-quality reference model"
@@ -893,12 +960,17 @@ internal fun ModelInsightsDestination(
                     selectedModel.studentName
                 },
                 badge = if (selectedModel.isV2) "On-device INT8" else "On-device FP32",
-                weight = "${"%.1f".format(studentSizeMb)} MiB model assets",
+                weight = selectedModel.studentFp32PackageMb?.let { fp32Mb ->
+                    selectedModel.studentInt8PackageMb?.let { int8Mb ->
+                        "FP32 ${"%.2f".format(fp32Mb)} MB → " +
+                            "INT8 ${"%.2f".format(int8Mb)} MB"
+                    }
+                } ?: "${"%.2f".format(studentSizeMb)} MB model assets",
                 memory = (
                     if (vietnamese) "App PSS hiện tại: " else "Current app PSS: "
                     ) + "${"%.1f".format(appPssMb)} MiB",
                 performance = selectedModel.validationCiderD?.let { cider ->
-                    "Validation CIDEr-D: ${"%.4f".format(cider)} · " +
+                    "Validation CIDEr-D: ${"%.2f".format(cider * 100.0)} · " +
                         (
                             latestLatencyMs?.let {
                                 if (vietnamese) {
@@ -992,8 +1064,38 @@ private fun ModelConfigurationCard(
                         if (vietnamese) "Kiến trúc" else "Architecture",
                         if (!model.isV2 && !vietnamese) "V1 inference engine" else model.studentName,
                     )
+                    ConfigurationRow(
+                        if (vietnamese) "Phương pháp KD" else "KD method",
+                        model.kdMethod(vietnamese),
+                    )
                     ConfigurationRow(if (vietnamese) "Số tham số" else "Parameters", parameters)
                     ConfigurationRow(if (vietnamese) "Độ chính xác" else "Precision", precision)
+                    model.teacherPackageMb?.let {
+                        ConfigurationRow(
+                            if (vietnamese) {
+                                "Dung lượng Teacher"
+                            } else {
+                                "Teacher size"
+                            },
+                            "${"%,.2f".format(it)} MB",
+                        )
+                    }
+                    model.studentFp32PackageMb?.let {
+                        ConfigurationRow("Student FP32", "${"%.2f".format(it)} MB")
+                    }
+                    model.studentInt8PackageMb?.let {
+                        ConfigurationRow("Student INT8", "${"%.2f".format(it)} MB")
+                    }
+                    model.teacherToStudentInt8Ratio?.let {
+                        ConfigurationRow(
+                            if (vietnamese) {
+                                "Tỷ lệ Teacher/Student INT8"
+                            } else {
+                                "Teacher/Student INT8 ratio"
+                            },
+                            "${"%.2f".format(it)}×",
+                        )
+                    }
                     ConfigurationRow("Encoder", model.encoderAsset ?: "baseline_encoder_fp32.onnx")
                     ConfigurationRow("Decoder", model.decoderAsset ?: "baseline_decoder_fp32.onnx")
                     ConfigurationRow(if (vietnamese) "Từ vựng" else "Vocabulary", vocabulary)
@@ -1005,10 +1107,10 @@ private fun ModelConfigurationCard(
                         if (vietnamese) "beam 3 · tối đa 31 tokens" else "beam 3 · max 31 tokens",
                     )
                     model.validationCiderD?.let {
-                        ConfigurationRow("Validation CIDEr-D", "%.4f".format(it))
+                        ConfigurationRow("Validation CIDEr-D", "%.2f".format(it * 100.0))
                     }
                     model.validationBleu4?.let {
-                        ConfigurationRow("Validation BLEU-4", "%.4f".format(it))
+                        ConfigurationRow("Validation BLEU-4", "%.2f".format(it * 100.0))
                     }
                     model.validationCe?.let {
                         ConfigurationRow("Validation CE", "%.4f".format(it))
@@ -1534,9 +1636,34 @@ private fun localizedOperationMessage(
         message.startsWith("Họ và tên") -> "Full name must contain 2 to 60 characters."
         message.startsWith("Username cần") -> "Username must contain 3–24 valid characters."
         message.startsWith("Email chưa đúng") -> "Enter a valid email address."
+        message.startsWith("Vui lòng nhập đúng định dạng email") ->
+            "Enter a valid email address."
+        message.startsWith("Email chưa tồn tại") ->
+            "This email is not registered in the system."
+        message.startsWith("Tài khoản này không sử dụng mật khẩu email") ->
+            "This account does not use an email password."
         message.startsWith("Mật khẩu cần") || message.startsWith("Mật khẩu mới cần") ->
             "Password must have at least 8 characters, uppercase, lowercase and a number."
         message.startsWith("Hai mật khẩu") -> "Passwords do not match."
+        message.startsWith("Mã xác minh đã được gửi") ->
+            message.replace("Mã xác minh đã được gửi đến", "Verification code sent to")
+        message.startsWith("Nếu tài khoản hợp lệ") ->
+            "If the account is valid, a verification code was sent to its registered email."
+        message.startsWith("Mã xác minh phải") -> "The verification code must contain 6 digits."
+        message.startsWith("Mã xác minh không đúng") ->
+            "The verification code is incorrect or expired."
+        message.startsWith("Mã xác minh đã hết hạn") ->
+            "The verification code has expired. Request a new code."
+        message.startsWith("Đã cập nhật mật khẩu") ->
+            "Password updated. Please sign in again."
+        message.startsWith("Bạn đã yêu cầu quá nhiều") ->
+            "Too many codes requested. Try again in 15 minutes."
+        message.startsWith("Máy chủ chưa cấu hình") ->
+            "The server has not configured password recovery email."
+        message.startsWith("Không thể gửi email") ->
+            "The verification email could not be sent. Please try again."
+        message.startsWith("Dịch vụ email") ->
+            "The email service is temporarily unavailable."
         message.startsWith("Thông tin chưa hợp lệ") -> "Some information is invalid. Please review it."
         message.startsWith("Không thể thay đổi") -> "This protected account cannot be changed."
         else -> "The request could not be completed. Please try again."

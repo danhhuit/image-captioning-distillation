@@ -1,5 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!--
+  Development-only override. It allows an emulator or a physical Android
+  device on the same trusted LAN to reach the local FastAPI server over HTTP.
+  The release build continues to use src/main/res/xml/network_security_config.xml,
+  where cleartext traffic is denied by default.
+-->
 <network-security-config>
-    <!-- Debug builds may connect to a trusted development machine on the LAN. -->
     <base-config cleartextTrafficPermitted="true" />
 </network-security-config>

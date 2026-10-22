@@ -1,32 +1,32 @@
 {
-  "schema_version": "phase7i_pair_mobile_runtime_contract_v1",
-  "created_at_utc": "2026-10-09T13:41:38.972697+00:00",
+  "schema_version": "dense_mapped_logit_kd_android_runtime_contract_v1",
+  "created_at_utc": "2026-10-21T11:42:41.971323+00:00",
   "pair": "T1-S1",
   "student_id": "S1",
   "seed": 123,
-  "strategy": "encoder_decoder_dynamic_int8_linear",
+  "strategy": "dynamic_weight_int8",
   "runtime": {
     "name": "onnxruntime-android",
     "version": "1.29.0",
-    "opset": 17,
+    "opset": 18,
     "cpu_threads_for_validation": 1
   },
   "artifacts": {
     "encoder.onnx": {
-      "relative_path": "models/t1_s1/encoder.onnx",
-      "size_bytes": 12482289,
-      "sha256": "16390358c41161a54e7af0598ff87336d22bcdb3ad837f7d6917d75edcd217eb"
+      "relative_path": "v2/t1_s1/encoder_int8.onnx",
+      "size_bytes": 12191812,
+      "sha256": "b015b503e8af8e9d86db04cbb00bd7a1f80d92e3274c590f84cfedf7f237efd4"
     },
     "decoder.onnx": {
-      "relative_path": "models/t1_s1/decoder.onnx",
-      "size_bytes": 15463940,
-      "sha256": "0184a94a7ae7dfc5560dfba9aebae9222337e34de4d242f2b3b5c912adcec261"
+      "relative_path": "v2/t1_s1/decoder_int8.onnx",
+      "size_bytes": 16343142,
+      "sha256": "ee7a324290aeae95613b5de1f8bcb88f1e88bf1652c98a9fe55389412c25d2cd"
     }
   },
-  "preprocessing_contract": "models/t1_s1/preprocessing_contract.json",
-  "shared_vocabulary": "shared/word_vocabulary_minfreq5.json",
-  "tokenizer_contract": "shared/tokenizer_contract.json",
-  "sequence_encoding_contract": "shared/sequence_encoding_contract.json",
+  "preprocessing_contract": "v2/t1_s1/preprocessing.json",
+  "shared_vocabulary": "v2/v2_word_vocabulary_minfreq5.json",
+  "tokenizer_contract": "v2/v2_tokenizer_contract.json",
+  "sequence_encoding_contract": "v2/v2_sequence_encoding_contract.json",
   "tensor_contract": {
     "image": [
       1,
@@ -40,15 +40,15 @@
       256
     ],
     "decoder_input_ids": [
-      1,
+      3,
       31
     ],
     "decoder_attention_mask": [
-      1,
+      3,
       31
     ],
     "logits": [
-      1,
+      3,
       31,
       10080
     ]
@@ -69,6 +69,13 @@
       "logits"
     ]
   },
+  "tensor_dtypes": {
+    "image": "float32",
+    "visual_memory": "float32",
+    "decoder_input_ids": "int64",
+    "decoder_attention_mask": "int64",
+    "logits": "float32"
+  },
   "special_token_ids": {
     "pad": 0,
     "bos": 1,
@@ -81,12 +88,21 @@
     "maximum_steps": 31
   },
   "validation_quality": {
-    "CIDEr-D": 1.1092022261075705,
-    "BLEU-4": 0.3464033873013923,
-    "CE": 2.354636709833465,
+    "CIDEr-D": 1.0844795254322963,
+    "BLEU-4": 0.3397668328851314,
+    "CE": 2.99363002553186,
+    "delta_int8_minus_fp32": {
+      "CIDEr-D": 0.0030195596093851584,
+      "BLEU-4": 0.0007315938864621563,
+      "CE": -0.003852062662196065
+    },
+    "validation_images": 5000,
+    "validation_references": 25010,
     "quality_gate_passed": true
   },
   "physical_android_benchmark_performed": false,
-  "test_set_status": "sealed",
-  "test_set_used": false
+  "prior_test_open_count": 1,
+  "new_test_opening": false,
+  "test_data_read_this_phase": false,
+  "test_status": "locked_after_authorized_one_time_evaluation"
 }

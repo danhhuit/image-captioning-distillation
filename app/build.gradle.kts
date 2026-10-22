@@ -6,6 +6,7 @@ plugins {
 android {
     namespace = "com.klcn.mobilecaptioning"
     compileSdk = 36
+    testBuildType = "release"
 
     defaultConfig {
         applicationId = "com.klcn.mobilecaptioning"

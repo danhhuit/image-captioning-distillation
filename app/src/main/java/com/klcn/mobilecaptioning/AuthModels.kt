@@ -100,9 +100,15 @@ internal data class AuthOperation(
 )
 
 internal data class OtpChallenge(
-    val destination: String,
-    val code: String,
+    val challengeId: String,
+    val email: String,
+    val emailHint: String?,
     val expiresAtMillis: Long,
+)
+
+internal data class OtpRequestOperation(
+    val operation: AuthOperation,
+    val challenge: OtpChallenge? = null,
 )
 
 internal class AuthStore(private val context: Context) {
@@ -340,13 +346,31 @@ internal class AuthStore(private val context: Context) {
         return createSession(account, "Đã đăng ký tài khoản!", "REGISTER")
     }
 
-    fun requestOtp(destination: String): OtpChallenge {
-        val code = (100000 + SecureRandom().nextInt(900000)).toString()
-        return OtpChallenge(
-            destination = destination.trim(),
-            code = code,
-            expiresAtMillis = System.currentTimeMillis() + 5 * 60 * 1000,
-        )
+    suspend fun requestPasswordResetCentral(email: String): OtpRequestOperation {
+        val normalizedEmail = email.trim().lowercase()
+        if (!EmailPattern.matches(normalizedEmail)) {
+            return OtpRequestOperation(
+                AuthOperation(false, "Vui lòng nhập đúng định dạng email."),
+            )
+        }
+        return try {
+            val response = centralApi.requestPasswordReset(normalizedEmail)
+            OtpRequestOperation(
+                operation = AuthOperation(
+                    true,
+                    "Mã xác minh đã được gửi đến ${response.emailHint ?: normalizedEmail}.",
+                ),
+                challenge = OtpChallenge(
+                    challengeId = response.challengeId,
+                    email = normalizedEmail,
+                    emailHint = response.emailHint,
+                    expiresAtMillis = System.currentTimeMillis() +
+                        response.expiresInSeconds * 1000,
+                ),
+            )
+        } catch (error: Throwable) {
+            OtpRequestOperation(AuthOperation(false, centralErrorMessage(error)))
+        }
     }
 
     fun signInWithGoogle(email: String, displayName: String?): AuthOperation {
@@ -374,14 +398,17 @@ internal class AuthStore(private val context: Context) {
         return createSession(account, "Đã đăng nhập bằng Google!", "GOOGLE_LOGIN")
     }
 
-    fun resetPassword(
-        identifier: String,
+    suspend fun resetPasswordCentral(
         challenge: OtpChallenge,
         enteredCode: String,
         newPassword: String,
+        confirmPassword: String,
     ): AuthOperation {
-        if (!verifyOtp(challenge, enteredCode, identifier)) {
-            return AuthOperation(false, "Mã xác minh không đúng hoặc đã hết hạn.")
+        if (System.currentTimeMillis() > challenge.expiresAtMillis) {
+            return AuthOperation(false, "Mã xác minh đã hết hạn. Vui lòng yêu cầu mã mới.")
+        }
+        if (!Regex("^\\d{6}$").matches(enteredCode.trim())) {
+            return AuthOperation(false, "Mã xác minh phải gồm 6 chữ số.")
         }
         if (!isStrongPassword(newPassword)) {
             return AuthOperation(
@@ -389,33 +416,33 @@ internal class AuthStore(private val context: Context) {
                 "Mật khẩu mới cần ít nhất 8 ký tự, có chữ hoa, chữ thường và số.",
             )
         }
-        val normalized = identifier.trim().lowercase()
-        val accounts = loadAccounts()
-        val index = accounts.indexOfFirst {
-            it.email?.lowercase() == normalized ||
-                it.username.lowercase() == normalized
+        if (newPassword != confirmPassword) {
+            return AuthOperation(false, "Hai mật khẩu mới chưa trùng nhau.")
         }
-        if (index < 0) return AuthOperation(false, "Không tìm thấy tài khoản.")
-        if (accounts[index].role == UserRole.SUPER_ADMIN) {
-            return AuthOperation(
-                false,
-                "Super Admin cố định không cho phép đặt lại mật khẩu tại thiết bị.",
+        return try {
+            centralApi.confirmPasswordReset(
+                challengeId = challenge.challengeId,
+                code = enteredCode.trim(),
+                newPassword = newPassword,
+                confirmPassword = confirmPassword,
             )
+            val accounts = loadAccounts()
+            val accountIndex = accounts.indexOfFirst {
+                it.email?.equals(challenge.email, ignoreCase = true) == true
+            }
+            if (accountIndex >= 0) {
+                val salt = randomBytes(16)
+                val updated = accounts.toMutableList()
+                updated[accountIndex] = updated[accountIndex].copy(
+                    passwordHash = hashPassword(newPassword, salt),
+                    passwordSalt = Base64.encodeToString(salt, Base64.NO_WRAP),
+                )
+                saveAccounts(updated)
+            }
+            AuthOperation(true, "Đã cập nhật mật khẩu. Vui lòng đăng nhập lại.")
+        } catch (error: Throwable) {
+            AuthOperation(false, centralErrorMessage(error))
         }
-        val salt = randomBytes(16)
-        val updated = accounts.toMutableList()
-        updated[index] = updated[index].copy(
-            passwordHash = hashPassword(newPassword, salt),
-            passwordSalt = Base64.encodeToString(salt, Base64.NO_WRAP),
-            provider = AuthProvider.EMAIL,
-        )
-        saveAccounts(updated)
-        recordActivity(
-            AuthSession(updated[index]),
-            "PASSWORD_RESET",
-            "Đặt lại mật khẩu thành công",
-        )
-        return AuthOperation(true, "Đã cập nhật mật khẩu.")
     }
 
     fun listActivities(): List<UserActivityEvent> = database.loadActivities()
@@ -628,6 +655,15 @@ internal class AuthStore(private val context: Context) {
 
     private fun centralErrorMessage(error: Throwable): String = when (error) {
         is CentralApiException -> when (error.statusCode) {
+            400 -> when (error.message) {
+                "INVALID_OR_EXPIRED_RESET_CODE" ->
+                    "Mã xác minh không đúng hoặc đã hết hạn."
+                "PASSWORD_CONFIRMATION_MISMATCH" ->
+                    "Hai mật khẩu mới chưa trùng nhau."
+                "PASSWORD_RESET_NOT_AVAILABLE" ->
+                    "Tài khoản này không sử dụng mật khẩu email."
+                else -> "Thông tin chưa hợp lệ. Vui lòng kiểm tra lại."
+            }
             401 -> when (error.message) {
                 "GOOGLE_TOKEN_INVALID" ->
                     "Phiên đăng nhập Google không hợp lệ. Vui lòng chọn lại tài khoản Google."
@@ -637,13 +673,27 @@ internal class AuthStore(private val context: Context) {
                     "Email Google chưa được xác minh."
                 else -> "Thông tin đăng nhập không chính xác."
             }
-            403 -> "Tài khoản đã bị khóa hoặc không có quyền truy cập."
-            404 -> "Không tìm thấy dữ liệu yêu cầu."
+            403 -> when (error.message) {
+                "ACCOUNT_LOCKED" -> "Tài khoản đã bị khóa."
+                else -> "Tài khoản đã bị khóa hoặc không có quyền truy cập."
+            }
+            404 -> when (error.message) {
+                "EMAIL_NOT_FOUND" -> "Email chưa tồn tại trong hệ thống."
+                else -> "Không tìm thấy dữ liệu yêu cầu."
+            }
             409 -> when (error.message) {
                 "USERNAME_EXISTS" -> "Username đã tồn tại."
                 "EMAIL_EXISTS" -> "Email đã được sử dụng."
                 "PROTECTED_SUPER_ADMIN" -> "Không thể thay đổi tài khoản Super Admin."
                 else -> "Username hoặc email đã tồn tại."
+            }
+            429 -> "Bạn đã yêu cầu quá nhiều mã. Vui lòng thử lại sau 15 phút."
+            503 -> when (error.message) {
+                "EMAIL_NOT_CONFIGURED" ->
+                    "Máy chủ chưa cấu hình gửi email khôi phục."
+                "EMAIL_DELIVERY_FAILED" ->
+                    "Không thể gửi email xác minh. Vui lòng thử lại."
+                else -> "Dịch vụ email đang tạm thời không khả dụng."
             }
             422 -> "Thông tin chưa hợp lệ. Vui lòng kiểm tra lại."
             else -> "Có lỗi xảy ra. Vui lòng thử lại."
@@ -781,15 +831,6 @@ internal class AuthStore(private val context: Context) {
         }
         return candidate
     }
-
-    private fun verifyOtp(
-        challenge: OtpChallenge,
-        enteredCode: String,
-        destination: String,
-    ): Boolean =
-        System.currentTimeMillis() <= challenge.expiresAtMillis &&
-            challenge.code == enteredCode.trim() &&
-            normalizeIdentity(challenge.destination) == normalizeIdentity(destination)
 
     private fun hashPassword(password: String, saltBytes: ByteArray): String {
         val spec = PBEKeySpec(

@@ -46,6 +46,12 @@ internal data class CentralSession(
     val account: UserAccount,
 )
 
+internal data class CentralPasswordResetChallenge(
+    val challengeId: String,
+    val emailHint: String?,
+    val expiresInSeconds: Long,
+)
+
 internal class CentralApiException(
     val statusCode: Int,
     override val message: String,
@@ -83,6 +89,36 @@ internal class CentralApiClient(context: Context) {
         "/v1/auth/google",
         JSONObject().put("id_token", idToken).put("nonce", nonce),
     ).toCentralSession()
+
+    suspend fun requestPasswordReset(email: String): CentralPasswordResetChallenge {
+        val response = post(
+            "/v1/auth/password-reset/request",
+            JSONObject().put("email", email),
+        )
+        return CentralPasswordResetChallenge(
+            challengeId = response.getString("challenge_id"),
+            emailHint = response.optString("email_hint").takeIf {
+                it.isNotBlank() && it != "null"
+            },
+            expiresInSeconds = response.getLong("expires_in_seconds"),
+        )
+    }
+
+    suspend fun confirmPasswordReset(
+        challengeId: String,
+        code: String,
+        newPassword: String,
+        confirmPassword: String,
+    ) {
+        post(
+            "/v1/auth/password-reset/confirm",
+            JSONObject()
+                .put("challenge_id", challengeId)
+                .put("code", code)
+                .put("new_password", newPassword)
+                .put("confirm_password", confirmPassword),
+        )
+    }
 
     suspend fun currentAccount(accessToken: String): UserAccount = request(
         "GET", "/v1/me", null, accessToken,

@@ -517,6 +517,44 @@ adb install .\app\build\outputs\apk\debug\app-debug.apk
 
 Hướng dẫn chi tiết hơn: [AUTH_PRODUCTION_SETUP.md](AUTH_PRODUCTION_SETUP.md).
 
+### 9.4 Cấu hình email quên mật khẩu
+
+Chức năng **Quên mật khẩu** dùng backend trung tâm, không sinh hoặc hiển thị
+mã xác minh trong ứng dụng. OTP gồm 6 chữ số được gửi đến đúng email đã lưu
+trong tài khoản `EMAIL`.
+
+Với Gmail:
+
+1. bật **Xác minh 2 bước** cho tài khoản gửi thư;
+2. tạo **App Password** có tên `Vision Caption`;
+3. thêm cấu hình sau vào `D:\KLCN\backend\.env`:
+
+```dotenv
+PASSWORD_RESET_MINUTES=10
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=587
+SMTP_USERNAME=your-email@gmail.com
+SMTP_PASSWORD=GOOGLE_APP_PASSWORD_16_KY_TU
+SMTP_FROM_EMAIL=your-email@gmail.com
+SMTP_FROM_NAME=Vision Caption
+SMTP_SECURITY=starttls
+```
+
+Không dùng mật khẩu Gmail thông thường, không đưa App Password vào Git và
+không thêm dấu cách vào App Password. Áp dụng migration và khởi động lại:
+
+```powershell
+cd D:\KLCN\backend
+Set-ExecutionPolicy -Scope Process Bypass
+.\setup.ps1
+```
+
+Để kiểm thử, đăng ký một tài khoản bằng hộp thư thật, chọn **Quên mật khẩu**,
+nhập đúng email đã tồn tại trong hệ thống, sau đó nhập OTP, mật khẩu mới và
+xác nhận mật khẩu. Username, email chưa đăng ký và tài khoản Google không có
+mật khẩu cục bộ đều không được chấp nhận ở luồng này.
+OTP hết hạn sau 10 phút, dùng một lần và bị khóa sau 5 lần nhập sai.
+
 ## 10. Build và cài ứng dụng
 
 ### 10.1 Android Studio

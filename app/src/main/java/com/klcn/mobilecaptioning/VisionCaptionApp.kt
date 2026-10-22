@@ -1128,7 +1128,8 @@ private fun SelectedModelBanner(
                     )
                     Text(
                         text = if (model.isV2) {
-                            "${model.studentName} · ONNX Runtime INT8"
+                            "${model.studentName} · " +
+                                "${model.kdMethod(labels.capture == "Chụp")} · ONNX Runtime INT8"
                         } else if (labels.capture == "Chụp") {
                             "Mô hình tham chiếu · ONNX FP32"
                         } else {

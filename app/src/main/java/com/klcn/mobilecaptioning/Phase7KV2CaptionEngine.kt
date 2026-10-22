@@ -46,6 +46,12 @@ internal enum class CaptionModelMode(
     val validationCe: Double?,
     val packageBytes: Long?,
     val packageReductionFraction: Double?,
+    val kdMethodVi: String,
+    val kdMethodEn: String,
+    val teacherPackageMb: Double?,
+    val studentFp32PackageMb: Double?,
+    val decoderFixedBatchSize: Int = 1,
+    val decoderAttentionMaskInt64: Boolean = false,
 ) {
     V1_FALLBACK(
         pairId = "V1",
@@ -63,6 +69,10 @@ internal enum class CaptionModelMode(
         validationCe = null,
         packageBytes = null,
         packageReductionFraction = null,
+        kdMethodVi = "Không áp dụng",
+        kdMethodEn = "Not applicable",
+        teacherPackageMb = null,
+        studentFp32PackageMb = null,
     ),
     T1_S1(
         pairId = "T1-S1",
@@ -72,16 +82,22 @@ internal enum class CaptionModelMode(
         encoderAsset = "v2/t1_s1/encoder_int8.onnx",
         decoderAsset = "v2/t1_s1/decoder_int8.onnx",
         expectedEncoderSha256 =
-            "16390358c41161a54e7af0598ff87336d22bcdb3ad837f7d6917d75edcd217eb",
+            "b015b503e8af8e9d86db04cbb00bd7a1f80d92e3274c590f84cfedf7f237efd4",
         expectedDecoderSha256 =
-            "0184a94a7ae7dfc5560dfba9aebae9222337e34de4d242f2b3b5c912adcec261",
+            "ee7a324290aeae95613b5de1f8bcb88f1e88bf1652c98a9fe55389412c25d2cd",
         normalizationMean = floatArrayOf(0.485f, 0.456f, 0.406f),
         normalizationStd = floatArrayOf(0.229f, 0.224f, 0.225f),
-        validationCiderD = 1.1092022261075705,
-        validationBleu4 = 0.3464033873013923,
-        validationCe = 2.354636709833465,
-        packageBytes = 27_946_229L,
-        packageReductionFraction = 0.23013484706032017,
+        validationCiderD = 1.0844795254322963,
+        validationBleu4 = 0.3397668328851314,
+        validationCe = 2.99363002553186,
+        packageBytes = 28_534_954L,
+        packageReductionFraction = 0.38371905577875276,
+        kdMethodVi = "Dense Mapped Logit-KD",
+        kdMethodEn = "Dense Mapped Logit-KD",
+        teacherPackageMb = 2_819.735367,
+        studentFp32PackageMb = 46.301860,
+        decoderFixedBatchSize = 3,
+        decoderAttentionMaskInt64 = true,
     ),
     T2_S2(
         pairId = "T2-S2",
@@ -101,6 +117,10 @@ internal enum class CaptionModelMode(
         validationCe = 2.310971689034545,
         packageBytes = 26_898_053L,
         packageReductionFraction = 0.3830937847658409,
+        kdMethodVi = "Sequence KD",
+        kdMethodEn = "Sequence KD",
+        teacherPackageMb = 989.988954,
+        studentFp32PackageMb = 43.601527,
     ),
     T3_S3(
         pairId = "T3-S3",
@@ -120,10 +140,30 @@ internal enum class CaptionModelMode(
         validationCe = 2.1172064699553945,
         packageBytes = 38_311_909L,
         packageReductionFraction = 0.1658590243100897,
+        kdMethodVi = "Direct Logit KD",
+        kdMethodEn = "Direct Logit KD",
+        teacherPackageMb = 1_055.013770,
+        studentFp32PackageMb = 45.929777,
     );
 
     val isV2: Boolean
         get() = this != V1_FALLBACK
+
+    val studentInt8PackageMb: Double?
+        get() = packageBytes?.div(1_000_000.0)
+
+    val teacherToStudentInt8Ratio: Double?
+        get() = teacherPackageMb?.let { teacherMb ->
+            studentInt8PackageMb
+                ?.takeIf { it > 0.0 }
+                ?.let { studentMb -> teacherMb / studentMb }
+        }
+
+    fun kdMethod(vietnamese: Boolean): String = if (vietnamese) {
+        kdMethodVi
+    } else {
+        kdMethodEn
+    }
 
     companion object {
         val researchModes: List<CaptionModelMode> = listOf(T1_S1, T2_S2, T3_S3)
@@ -278,7 +318,13 @@ internal object Phase7KV2CaptionEngine {
         check(visualMemory.all(Float::isFinite))
 
         val beamStartedAt = SystemClock.elapsedRealtimeNanos()
-        val beamResult = decodeBeam3Sequential(decoder, visualMemory)
+        val beamResult = when {
+            mode.decoderFixedBatchSize == 3 && mode.decoderAttentionMaskInt64 ->
+                decodeBeam3FixedBatch(decoder, visualMemory)
+            mode.decoderFixedBatchSize == 1 && !mode.decoderAttentionMaskInt64 ->
+                decodeBeam3Sequential(decoder, visualMemory)
+            else -> error("Unsupported decoder contract for ${mode.pairId}")
+        }
         val beamMs = (
             SystemClock.elapsedRealtimeNanos() - beamStartedAt
         ) / 1_000_000.0
@@ -336,6 +382,7 @@ internal object Phase7KV2CaptionEngine {
         val normalizedScore: Float,
     )
 
+    /** Compatibility path for the earlier T2-S2 and T3-S3 batch-1 graphs. */
     private fun decodeBeam3Sequential(
         decoder: OrtSession,
         visualMemory: FloatArray,
@@ -355,7 +402,7 @@ internal object Phase7KV2CaptionEngine {
                     inputIds[position] = beam.tokens[position]
                     attentionMask[position] = true
                 }
-                val logits = runV2Decoder(
+                val logits = runV2DecoderBatch1Bool(
                     session = decoder,
                     visualMemory = visualMemory,
                     inputIds = inputIds,
@@ -363,6 +410,87 @@ internal object Phase7KV2CaptionEngine {
                 )
                 val position = min(beam.tokens.size - 1, sequenceLength - 1)
                 val offset = position * vocabularySize
+                val maximumLogit = (0 until vocabularySize)
+                    .maxOf { tokenId -> logits[offset + tokenId] }
+                var exponentialSum = 0.0
+                for (tokenId in 0 until vocabularySize) {
+                    exponentialSum += exp(
+                        (logits[offset + tokenId] - maximumLogit).toDouble(),
+                    )
+                }
+                val logSumExp = maximumLogit.toDouble() + ln(exponentialSum)
+                val topScores = FloatArray(beamSize) { Float.NEGATIVE_INFINITY }
+                val topTokenIds = IntArray(beamSize) { -1 }
+                val lexicalCount = max(0, beam.tokens.size - 1)
+                for (tokenId in 0 until vocabularySize) {
+                    if (tokenId == 0 || tokenId == 1 || tokenId == 3) continue
+                    if (lexicalCount < minimumWords && tokenId == eosId.toInt()) continue
+                    insertTopToken(
+                        score = (logits[offset + tokenId].toDouble() - logSumExp).toFloat(),
+                        tokenId = tokenId,
+                        topScores = topScores,
+                        topTokenIds = topTokenIds,
+                    )
+                }
+                for (rank in 0 until beamSize) {
+                    check(topTokenIds[rank] >= 0)
+                    val nextTokenId = topTokenIds[rank].toLong()
+                    candidates += Beam(
+                        tokens = beam.tokens + nextTokenId,
+                        score = beam.score + topScores[rank],
+                        finished = nextTokenId == eosId,
+                    )
+                }
+            }
+            beams = candidates.sortedByDescending(Beam::normalizedScore).take(beamSize)
+            if (beams.all(Beam::finished)) break
+        }
+        val best = beams.maxBy(Beam::normalizedScore)
+        return BeamResult(
+            tokenIds = best.tokens,
+            eosPosition = best.tokens.indexOf(eosId),
+            rawScore = best.score,
+            normalizedScore = best.normalizedScore,
+        )
+    }
+
+    /**
+     * Beam-3 matching the locked Validation implementation.
+     *
+     * The production decoder graph has a fixed batch of three. Active beams
+     * are therefore evaluated in one batch and unused rows are padded. Only
+     * logits belonging to active rows participate in candidate selection.
+     */
+    private fun decodeBeam3FixedBatch(
+        decoder: OrtSession,
+        visualMemory: FloatArray,
+    ): BeamResult {
+        var beams = listOf(Beam(tokens = listOf(bosId), score = 0f, finished = false))
+        for (generationStep in 0 until sequenceLength) {
+            val active = beams.filterNot(Beam::finished)
+            if (active.isEmpty()) {
+                break
+            }
+            check(active.size <= beamSize)
+            val inputIds = Array(beamSize) { LongArray(sequenceLength) }
+            val attentionMask = Array(beamSize) { LongArray(sequenceLength) }
+            active.forEachIndexed { row, beam ->
+                val length = min(beam.tokens.size, sequenceLength)
+                for (position in 0 until length) {
+                    inputIds[row][position] = beam.tokens[position]
+                    attentionMask[row][position] = 1L
+                }
+            }
+            val logits = runV2DecoderFixedBatch3(
+                session = decoder,
+                visualMemory = visualMemory,
+                inputIds = inputIds,
+                attentionMask = attentionMask,
+            )
+            val candidates = beams.filter(Beam::finished).toMutableList()
+            active.forEachIndexed { row, beam ->
+                val position = min(beam.tokens.size - 1, sequenceLength - 1)
+                val offset = (row * sequenceLength + position) * vocabularySize
                 val maximumLogit = (0 until vocabularySize)
                     .maxOf { tokenId -> logits[offset + tokenId] }
                 var exponentialSum = 0.0
@@ -458,7 +586,7 @@ internal object Phase7KV2CaptionEngine {
         }
     }
 
-    private fun runV2Decoder(
+    private fun runV2DecoderBatch1Bool(
         session: OrtSession,
         visualMemory: FloatArray,
         inputIds: LongArray,
@@ -504,6 +632,66 @@ internal object Phase7KV2CaptionEngine {
                         val outputBuffer = tensor.floatBuffer
                         val output = FloatArray(outputBuffer.remaining())
                         outputBuffer.get(output)
+                        return output
+                    }
+                }
+            }
+        }
+    }
+
+    private fun runV2DecoderFixedBatch3(
+        session: OrtSession,
+        visualMemory: FloatArray,
+        inputIds: Array<LongArray>,
+        attentionMask: Array<LongArray>,
+    ): FloatArray {
+        require(visualMemory.size == memoryTokens * hiddenSize)
+        require(inputIds.size == beamSize && attentionMask.size == beamSize)
+        require(inputIds.all { it.size == sequenceLength })
+        require(attentionMask.all { it.size == sequenceLength })
+
+        val flatInputIds = LongArray(beamSize * sequenceLength)
+        val flatAttentionMask = LongArray(beamSize * sequenceLength)
+        val batchedMemory = FloatArray(beamSize * visualMemory.size)
+        for (row in 0 until beamSize) {
+            inputIds[row].copyInto(flatInputIds, row * sequenceLength)
+            attentionMask[row].copyInto(flatAttentionMask, row * sequenceLength)
+            visualMemory.copyInto(batchedMemory, row * visualMemory.size)
+        }
+
+        OnnxTensor.createTensor(
+            environment,
+            LongBuffer.wrap(flatInputIds),
+            longArrayOf(beamSize.toLong(), sequenceLength.toLong()),
+        ).use { idsTensor ->
+            OnnxTensor.createTensor(
+                environment,
+                FloatBuffer.wrap(batchedMemory),
+                longArrayOf(
+                    beamSize.toLong(),
+                    memoryTokens.toLong(),
+                    hiddenSize.toLong(),
+                ),
+            ).use { memoryTensor ->
+                OnnxTensor.createTensor(
+                    environment,
+                    LongBuffer.wrap(flatAttentionMask),
+                    longArrayOf(beamSize.toLong(), sequenceLength.toLong()),
+                ).use { maskTensor ->
+                    session.run(
+                        mapOf(
+                            "decoder_input_ids" to idsTensor,
+                            "visual_memory" to memoryTensor,
+                            "decoder_attention_mask" to maskTensor,
+                        ),
+                    ).use { result ->
+                        check(result.size() == 1)
+                        val tensor = result.get(0) as? OnnxTensor
+                            ?: error("V2 decoder output is not an OnnxTensor")
+                        val outputBuffer = tensor.floatBuffer
+                        val output = FloatArray(outputBuffer.remaining())
+                        outputBuffer.get(output)
+                        check(output.size == beamSize * sequenceLength * vocabularySize)
                         return output
                     }
                 }
