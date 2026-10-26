@@ -6,6 +6,7 @@ import android.os.Build
 import android.os.Debug
 import android.os.PowerManager
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import androidx.test.filters.RequiresDevice
 import androidx.test.platform.app.InstrumentationRegistry
 import java.io.File
 import kotlin.math.ceil
@@ -18,6 +19,7 @@ import org.junit.Test
 import org.junit.runner.RunWith
 
 @RunWith(AndroidJUnit4::class)
+@RequiresDevice
 class DenseMappedLogitKdAndroidBenchmarkTest {
     @Test
     fun benchmarkAuthorizedDynamicInt8OnPhysicalDevice() {

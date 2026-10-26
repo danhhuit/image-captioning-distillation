@@ -187,10 +187,20 @@ internal class CentralApiClient(context: Context) {
     }
 
     suspend fun listCaptions(accessToken: String): List<JSONObject> {
-        val response = request("GET", "/v1/captions?page=1&page_size=100", null, accessToken)
-        val items = response.getJSONArray("items")
         return buildList {
-            for (index in 0 until items.length()) add(items.getJSONObject(index))
+            var page = 1
+            var total = Int.MAX_VALUE
+            do {
+                val response = request(
+                    "GET", "/v1/captions?page=$page&page_size=100", null, accessToken,
+                )
+                val items = response.getJSONArray("items")
+                total = response.getInt("total")
+                for (index in 0 until items.length()) {
+                    add(items.getJSONObject(index))
+                }
+                page++
+            } while (size < total && items.length() > 0)
         }
     }
 

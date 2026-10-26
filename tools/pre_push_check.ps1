@@ -92,9 +92,10 @@ try {
     } else {
         Invoke-Checked -Command {
             & ".\gradlew.bat" `
-                :app:testDebugUnitTest `
+                :app:testReleaseUnitTest `
                 :app:lintDebug `
-                :app:assembleDebug
+                :app:assembleDebug `
+                :app:assembleReleaseAndroidTest
         } -FailureMessage "Android test/lint/build gate failed."
     }
 
