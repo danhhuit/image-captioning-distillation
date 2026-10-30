@@ -41,7 +41,6 @@ import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
@@ -73,7 +72,6 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 import kotlin.math.max
-import org.json.JSONObject
 
 private enum class AuthMode {
     SIGN_IN,
@@ -879,20 +877,9 @@ internal fun ModelInsightsDestination(
     val memoryInfo = remember {
         ActivityManager.MemoryInfo().also(activityManager::getMemoryInfo)
     }
-    val v1StudentAssetBytes = remember {
-        val contract = JSONObject(
-            context.assets.open("phase7b_mobile_handoff_contract.json")
-                .bufferedReader()
-                .use { it.readText() },
-        )
-        contract.getJSONObject("encoder").getLong("size_bytes") +
-            contract.getJSONObject("decoder").getLong("size_bytes")
-    }
     val appPssMb = remember { Debug.getPss().toDouble() / 1024.0 }
     val totalRamGb = memoryInfo.totalMem.toDouble() / 1024 / 1024 / 1024
     val availableRamGb = memoryInfo.availMem.toDouble() / 1024 / 1024 / 1024
-    val studentAssetBytes = selectedModel.packageBytes ?: v1StudentAssetBytes
-    val studentSizeMb = studentAssetBytes.toDouble() / 1_000_000.0
 
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
@@ -919,7 +906,11 @@ internal fun ModelInsightsDestination(
             )
         }
         item {
-            ModelConfigurationCard(selectedModel, language)
+            ModelConfigurationCard(
+                model = selectedModel,
+                language = language,
+                latestLatencyMs = latestLatencyMs,
+            )
         }
         item {
             DeviceMetricCard(
@@ -930,79 +921,6 @@ internal fun ModelInsightsDestination(
                 language = language,
             )
         }
-        item {
-            ComparisonCard(
-                title = if (!selectedModel.isV2 && !vietnamese) {
-                    "V1 reference model"
-                } else {
-                    selectedModel.teacherName
-                },
-                badge = "GPU / Server",
-                weight = selectedModel.teacherPackageMb?.let { sizeMb ->
-                    "${"%,.2f".format(sizeMb)} MB · " +
-                        if (vietnamese) "checkpoint Teacher" else "Teacher checkpoint"
-                } ?: if (vietnamese) {
-                    "Mô hình tham chiếu chất lượng cao"
-                } else {
-                    "High-quality reference model"
-                },
-                memory = if (vietnamese) "Không đóng gói trong APK" else "Not bundled in the APK",
-                performance = if (vietnamese) "Nguồn truyền tri thức" else "Knowledge source",
-                progress = 1f,
-                emphasized = false,
-            )
-        }
-        item {
-            ComparisonCard(
-                title = if (!selectedModel.isV2 && !vietnamese) {
-                    "V1 inference engine"
-                } else {
-                    selectedModel.studentName
-                },
-                badge = if (selectedModel.isV2) "On-device INT8" else "On-device FP32",
-                weight = selectedModel.studentFp32PackageMb?.let { fp32Mb ->
-                    selectedModel.studentInt8PackageMb?.let { int8Mb ->
-                        "FP32 ${"%.2f".format(fp32Mb)} MB → " +
-                            "INT8 ${"%.2f".format(int8Mb)} MB"
-                    }
-                } ?: "${"%.2f".format(studentSizeMb)} MB model assets",
-                memory = (
-                    if (vietnamese) "App PSS hiện tại: " else "Current app PSS: "
-                    ) + "${"%.1f".format(appPssMb)} MiB",
-                performance = selectedModel.validationCiderD?.let { cider ->
-                    "Validation CIDEr-D: ${"%.2f".format(cider * 100.0)} · " +
-                        (
-                            latestLatencyMs?.let {
-                                if (vietnamese) {
-                                    "lượt gần nhất ${"%.0f".format(it)} ms"
-                                } else {
-                                    "latest run ${"%.0f".format(it)} ms"
-                                }
-                            } ?: if (vietnamese) {
-                                "chưa có inference trên thiết bị"
-                            } else {
-                                "no on-device inference yet"
-                            }
-                            )
-                } ?: (
-                    latestLatencyMs?.let {
-                        if (vietnamese) {
-                            "Inference gần nhất: ${"%.0f".format(it)} ms"
-                        } else {
-                            "Latest inference: ${"%.0f".format(it)} ms"
-                        }
-                    } ?: if (vietnamese) {
-                        "Chưa có lượt inference thực tế"
-                    } else {
-                        "No measured inference yet"
-                    }
-                    ),
-                progress = (
-                    1.0 - (selectedModel.packageReductionFraction ?: 0.0)
-                    ).toFloat().coerceIn(0.04f, 1f),
-                emphasized = true,
-            )
-        }
     }
 }
 
@@ -1010,24 +928,29 @@ internal fun ModelInsightsDestination(
 private fun ModelConfigurationCard(
     model: CaptionModelMode,
     language: AppLanguage,
+    latestLatencyMs: Double?,
 ) {
     val vietnamese = language == AppLanguage.Vietnamese
-    var expanded by remember(model) { mutableStateOf(false) }
-    val parameters = when (model) {
-        CaptionModelMode.V1_FALLBACK -> "8,480,816"
-        CaptionModelMode.T1_S1 -> "8,990,352"
-        CaptionModelMode.T2_S2 -> "10,874,112"
-        CaptionModelMode.T3_S3 -> "10,925,684"
+    var expanded by remember(model) { mutableStateOf(true) }
+    val profile = model.scientificProfile()
+    val parameters = model.studentParameters?.let { "%,d".format(it) } ?: "—"
+    val precision = model.runtimePrecision
+    val vocabulary = if (model.isV2) {
+        "%,d tokens".format(model.vocabularySize)
+    } else {
+        "12,293 tokens"
     }
-    val precision = if (model.isV2) "Dynamic INT8" else "FP32"
-    val vocabulary = if (model.isV2) "10,080 tokens" else "12,293 tokens"
     val memory = if (model.isV2) "float32 [1,49,256]" else "float32 [1,1,256]"
-    val logits = if (model.isV2) "float32 [1,31,10080]" else "float32 [3,31,12293]"
+    val logits = if (model.isV2) {
+        "float32 [1,31,${model.vocabularySize}]"
+    } else {
+        "float32 [3,31,12293]"
+    }
     Card(
         onClick = { expanded = !expanded },
         shape = RoundedCornerShape(22.dp),
         colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.secondaryContainer,
+            containerColor = MaterialTheme.colorScheme.surface,
         ),
     ) {
         Column(
@@ -1049,27 +972,160 @@ private fun ModelConfigurationCard(
                     )
                 }
                 Text(
-                    if (expanded) {
-                        if (vietnamese) "Thu gọn" else "Collapse"
-                    } else {
-                        if (vietnamese) "Xem chi tiết" else "View details"
-                    },
+                    text = if (expanded) "−" else "+",
+                    style = MaterialTheme.typography.headlineSmall,
+                    fontWeight = FontWeight.Medium,
                 )
             }
             AnimatedVisibility(expanded) {
                 Column(verticalArrangement = Arrangement.spacedBy(7.dp)) {
                     HorizontalDivider()
+                    ConfigurationSection(
+                        if (vietnamese) "NHẬN DẠNG MÔ HÌNH" else "MODEL IDENTITY",
+                    )
                     ConfigurationRow(if (vietnamese) "Mã mô hình" else "Model ID", model.pairId)
                     ConfigurationRow(
-                        if (vietnamese) "Kiến trúc" else "Architecture",
-                        if (!model.isV2 && !vietnamese) "V1 inference engine" else model.studentName,
+                        if (vietnamese) "Trạng thái" else "Status",
+                        when {
+                            model.comingSoon -> "COMING SOON"
+                            model in CaptionModelMode.mainModes ->
+                                if (vietnamese) "Mô hình chính" else "Primary model"
+                            else -> if (vietnamese) "Mô hình thử nghiệm" else "Experimental model"
+                        },
+                    )
+                    ConfigurationRow(
+                        if (vietnamese) "Tập dữ liệu" else "Dataset",
+                        model.datasetName,
+                    )
+                    ConfigurationRow(
+                        "Teacher",
+                        model.teacherName,
+                    )
+                    ConfigurationRow(
+                        "Student",
+                        model.studentName,
                     )
                     ConfigurationRow(
                         if (vietnamese) "Phương pháp KD" else "KD method",
                         model.kdMethod(vietnamese),
                     )
                     ConfigurationRow(if (vietnamese) "Số tham số" else "Parameters", parameters)
+                    profile.deploymentSeed?.let {
+                        ConfigurationRow(
+                            if (vietnamese) "Seed triển khai" else "Deployment seed",
+                            it.toString(),
+                        )
+                    }
+                    profile.evaluatedSeeds?.let {
+                        ConfigurationRow(
+                            if (vietnamese) "Các seed đã đánh giá" else "Evaluated seeds",
+                            it,
+                        )
+                    }
+                    profile.bestEpoch?.let {
+                        ConfigurationRow(
+                            if (vietnamese) "Epoch tốt nhất" else "Best epoch",
+                            it.toString(),
+                        )
+                    }
+
+                    ConfigurationSection(
+                        if (vietnamese) "CẤU HÌNH THỰC NGHIỆM" else "EXPERIMENT SETUP",
+                    )
+                    profile.trainingImages?.let {
+                        ConfigurationRow(
+                            if (vietnamese) "Ảnh huấn luyện" else "Training images",
+                            "%,d".format(it),
+                        )
+                    }
+                    profile.validationImages?.let {
+                        ConfigurationRow(
+                            if (vietnamese) "Ảnh Validation" else "Validation images",
+                            "%,d".format(it),
+                        )
+                    }
+                    profile.validationReferences?.let {
+                        ConfigurationRow(
+                            if (vietnamese) "Caption tham chiếu" else "Validation references",
+                            "%,d".format(it),
+                        )
+                    }
+                    profile.maximumEpochs?.let {
+                        ConfigurationRow(
+                            if (vietnamese) "Số epoch tối đa" else "Maximum epochs",
+                            it.toString(),
+                        )
+                    }
+                    profile.lossFormula?.let {
+                        ConfigurationRow(
+                            if (vietnamese) "Hàm mất mát" else "Loss",
+                            it,
+                        )
+                    }
+                    profile.temperature?.let {
+                        ConfigurationRow("Temperature", "%.1f".format(it))
+                    }
+                    profile.lossWeights?.let {
+                        ConfigurationRow(
+                            if (vietnamese) "Trọng số mất mát" else "Loss weights",
+                            it,
+                        )
+                    }
+                    profile.optimizer?.let { ConfigurationRow("Optimizer", it) }
+                    profile.learningRates?.let {
+                        ConfigurationRow("Learning rate", it)
+                    }
+                    profile.weightDecay?.let {
+                        ConfigurationRow("Weight decay", "%.4g".format(it))
+                    }
+                    profile.batchProtocol?.let {
+                        ConfigurationRow(
+                            if (vietnamese) "Batch" else "Batch protocol",
+                            it,
+                        )
+                    }
+                    profile.scheduler?.let { ConfigurationRow("Scheduler", it) }
+                    profile.mixedPrecision?.let {
+                        ConfigurationRow(
+                            if (vietnamese) "Độ chính xác huấn luyện" else "Training precision",
+                            it,
+                        )
+                    }
+                    profile.gradientClip?.let {
+                        ConfigurationRow("Gradient clip", "%.1f".format(it))
+                    }
+                    profile.earlyStopping?.let {
+                        ConfigurationRow("Early Stopping", it)
+                    }
+                    profile.selectionPolicy?.let {
+                        ConfigurationRow(
+                            if (vietnamese) "Chọn checkpoint" else "Checkpoint selection",
+                            it,
+                        )
+                    }
+
+                    ConfigurationSection(
+                        if (vietnamese) "GÓI TRIỂN KHAI" else "DEPLOYMENT PACKAGE",
+                    )
                     ConfigurationRow(if (vietnamese) "Độ chính xác" else "Precision", precision)
+                    profile.quantizationStrategy?.let {
+                        ConfigurationRow(
+                            if (vietnamese) "Lượng tử hóa" else "Quantization",
+                            it,
+                        )
+                    }
+                    profile.ortVersion?.let {
+                        ConfigurationRow("ONNX Runtime Android", it)
+                    }
+                    profile.onnxOpset?.let {
+                        ConfigurationRow("ONNX opset", it.toString())
+                    }
+                    profile.cpuThreads?.let {
+                        ConfigurationRow(
+                            if (vietnamese) "Luồng CPU kiểm định" else "Validation CPU threads",
+                            it.toString(),
+                        )
+                    }
                     model.teacherPackageMb?.let {
                         ConfigurationRow(
                             if (vietnamese) {
@@ -1084,7 +1140,21 @@ private fun ModelConfigurationCard(
                         ConfigurationRow("Student FP32", "${"%.2f".format(it)} MB")
                     }
                     model.studentInt8PackageMb?.let {
-                        ConfigurationRow("Student INT8", "${"%.2f".format(it)} MB")
+                        ConfigurationRow(
+                            when {
+                                !model.isV2 -> "Student FP32"
+                                model == CaptionModelMode.F30K_T3_S3_EXPERIMENTAL ->
+                                    "Student FP32/INT8"
+                                else -> "Student INT8"
+                            },
+                            "${"%.2f".format(it)} MB",
+                        )
+                    }
+                    model.packageReductionFraction?.let {
+                        ConfigurationRow(
+                            if (vietnamese) "Giảm dung lượng" else "Size reduction",
+                            "${"%.2f".format(it * 100.0)}%",
+                        )
                     }
                     model.teacherToStudentInt8Ratio?.let {
                         ConfigurationRow(
@@ -1098,28 +1168,153 @@ private fun ModelConfigurationCard(
                     }
                     ConfigurationRow("Encoder", model.encoderAsset ?: "baseline_encoder_fp32.onnx")
                     ConfigurationRow("Decoder", model.decoderAsset ?: "baseline_decoder_fp32.onnx")
+                    model.expectedEncoderSha256?.let {
+                        ConfigurationRow("Encoder SHA-256", formatSha256(it))
+                    }
+                    model.expectedDecoderSha256?.let {
+                        ConfigurationRow("Decoder SHA-256", formatSha256(it))
+                    }
+
+                    ConfigurationSection(
+                        if (vietnamese) "TIỀN XỬ LÝ VÀ TENSOR" else "PREPROCESSING AND TENSORS",
+                    )
+                    ConfigurationRow(
+                        if (vietnamese) "Không gian màu" else "Color space",
+                        "RGB",
+                    )
+                    ConfigurationRow(
+                        if (vietnamese) "Chuẩn hóa mean" else "Normalization mean",
+                        model.normalizationMean.joinToString(prefix = "[", postfix = "]") {
+                            "%.3f".format(it)
+                        },
+                    )
+                    ConfigurationRow(
+                        if (vietnamese) "Chuẩn hóa std" else "Normalization std",
+                        model.normalizationStd.joinToString(prefix = "[", postfix = "]") {
+                            "%.3f".format(it)
+                        },
+                    )
+                    ConfigurationRow("Tensor layout", "NCHW")
                     ConfigurationRow(if (vietnamese) "Từ vựng" else "Vocabulary", vocabulary)
                     ConfigurationRow(if (vietnamese) "Đầu vào" else "Input", "float32 [1,3,224,224]")
-                    ConfigurationRow("Visual memory", memory)
-                    ConfigurationRow("Decoder logits", logits)
+                    if (model.isV2) {
+                        ConfigurationRow(
+                            if (vietnamese) "Tên tensor ảnh" else "Image tensor",
+                            model.encoderInputName,
+                        )
+                    }
+                    ConfigurationRow(
+                        model.encoderOutputName,
+                        memory,
+                    )
+                    ConfigurationRow(
+                        model.decoderTokenIdsName,
+                        "int64 [${model.decoderFixedBatchSize},31]",
+                    )
+                    ConfigurationRow(
+                        model.decoderAttentionMaskName,
+                        "${if (model.decoderAttentionMaskInt64) "int64" else "bool"} " +
+                            "[${model.decoderFixedBatchSize},31]",
+                    )
+                    ConfigurationRow(model.decoderOutputName, logits)
+                    ConfigurationRow(
+                        if (vietnamese) "Token đặc biệt" else "Special tokens",
+                        "PAD=0; BOS=1; EOS=2; UNK=3",
+                    )
+
+                    ConfigurationSection(
+                        if (vietnamese) "GIẢI MÃ" else "DECODING",
+                    )
                     ConfigurationRow(
                         "Beam search",
-                        if (vietnamese) "beam 3 · tối đa 31 tokens" else "beam 3 · max 31 tokens",
+                        "Beam=3; length penalty=0.7",
                     )
-                    model.validationCiderD?.let {
-                        ConfigurationRow("Validation CIDEr-D", "%.2f".format(it * 100.0))
+                    ConfigurationRow(
+                        if (vietnamese) "Độ dài sinh tối đa" else "Maximum generated tokens",
+                        model.maximumGeneratedTokens.toString(),
+                    )
+                    ConfigurationRow(
+                        if (vietnamese) "Số từ tối thiểu" else "Minimum words",
+                        model.minimumWordsBeforeEos.toString(),
+                    )
+                    ConfigurationRow(
+                        if (vietnamese) "Chặn UNK" else "Forbid UNK",
+                        if (model.forbidUnknownToken) {
+                            if (vietnamese) "Có" else "Yes"
+                        } else {
+                            if (vietnamese) "Không" else "No"
+                        },
+                    )
+
+                    ConfigurationSection(
+                        if (vietnamese) "KẾT QUẢ THỰC NGHIỆM" else "EXPERIMENT RESULTS",
+                    )
+                    profile.bleu1?.let {
+                        ConfigurationRow("Validation BLEU-1", "%.2f".format(it * 100.0))
                     }
-                    model.validationBleu4?.let {
+                    profile.bleu4?.let {
                         ConfigurationRow("Validation BLEU-4", "%.2f".format(it * 100.0))
                     }
-                    model.validationCe?.let {
+                    profile.meteor?.let {
+                        ConfigurationRow("Validation METEOR", "%.2f".format(it * 100.0))
+                    }
+                    profile.rougeL?.let {
+                        ConfigurationRow("Validation ROUGE-L", "%.2f".format(it * 100.0))
+                    }
+                    profile.ciderD?.let {
+                        ConfigurationRow("Validation CIDEr-D", "%.2f".format(it * 100.0))
+                    }
+                    profile.ceLoss?.let {
                         ConfigurationRow("Validation CE", "%.4f".format(it))
                     }
+                    profile.exactCaptionAgreement?.let {
+                        ConfigurationRow(
+                            if (vietnamese) "Caption trùng hoàn toàn" else "Exact caption agreement",
+                            "${"%.2f".format(it * 100.0)}%",
+                        )
+                    }
+                    profile.quantizationDelta?.let {
+                        ConfigurationRow(
+                            if (vietnamese) "Chênh lệch lượng tử hóa" else "Quantization delta",
+                            it,
+                        )
+                    }
+                    profile.qualityDecisionVi?.let {
+                        ConfigurationRow(
+                            if (vietnamese) "Kết luận kiểm định" else "Quality decision",
+                            if (vietnamese) it else profile.qualityDecisionEn.orEmpty(),
+                        )
+                    }
+                    profile.testStatusVi?.let {
+                        ConfigurationRow(
+                            if (vietnamese) "Trạng thái Test" else "Test status",
+                            if (vietnamese) it else profile.testStatusEn.orEmpty(),
+                        )
+                    }
+                    ConfigurationRow(
+                        if (vietnamese) "Inference gần nhất" else "Latest inference",
+                        latestLatencyMs?.let { "${"%.2f".format(it)} ms" }
+                            ?: if (vietnamese) "Chưa có dữ liệu" else "No measurement",
+                    )
                 }
             }
         }
     }
 }
+
+@Composable
+private fun ConfigurationSection(title: String) {
+    Text(
+        text = title,
+        modifier = Modifier.padding(top = 10.dp, bottom = 2.dp),
+        style = MaterialTheme.typography.labelMedium,
+        fontWeight = FontWeight.Bold,
+        color = MaterialTheme.colorScheme.primary,
+    )
+}
+
+private fun formatSha256(value: String): String =
+    value.chunked(8).joinToString(" ")
 
 @Composable
 private fun ConfigurationRow(label: String, value: String) {
@@ -1132,6 +1327,7 @@ private fun ConfigurationRow(label: String, value: String) {
         )
         Text(
             value,
+            modifier = Modifier.weight(1.35f),
             style = MaterialTheme.typography.bodySmall,
             fontWeight = FontWeight.SemiBold,
             textAlign = TextAlign.End,
@@ -1146,52 +1342,13 @@ private fun ModelSelectionCard(
     language: AppLanguage,
     onModelSelected: (CaptionModelMode) -> Unit,
 ) {
-    val vietnamese = language == AppLanguage.Vietnamese
-    Card(
-        shape = RoundedCornerShape(22.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surface,
-        ),
-    ) {
-        Column(
-            modifier = Modifier.padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp),
-        ) {
-            Text(
-                text = if (vietnamese) {
-                    "Chọn mô hình chạy trên thiết bị"
-                } else {
-                    "Select an on-device model"
-                },
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold,
-            )
-            Text(
-                text = if (vietnamese) {
-                    "V1 là phương án dự phòng. Ba mô hình V2 INT8 đã vượt cổng chất lượng."
-                } else {
-                    "V1 is the fallback. All three V2 INT8 artifacts passed the quality gate."
-                },
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            LazyRow(
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                items(
-                    items = CaptionModelMode.selectableModes,
-                    key = CaptionModelMode::pairId,
-                ) { model ->
-                    FilterChip(
-                        selected = selectedModel == model,
-                        onClick = { onModelSelected(model) },
-                        enabled = enabled,
-                        label = { Text(model.displayName) },
-                    )
-                }
-            }
-        }
-    }
+    GroupedModelSelector(
+        selectedModel = selectedModel,
+        enabled = enabled,
+        language = language,
+        onModelSelected = onModelSelected,
+        showSelectedSummary = false,
+    )
 }
 
 @Composable
@@ -1226,77 +1383,6 @@ private fun DeviceMetricCard(
             Text(
                 (if (vietnamese) "Ứng dụng: " else "Application: ") +
                     "${"%.1f".format(appPssMb)} MiB PSS",
-            )
-        }
-    }
-}
-
-@Composable
-private fun ComparisonCard(
-    title: String,
-    badge: String,
-    weight: String,
-    memory: String,
-    performance: String,
-    progress: Float,
-    emphasized: Boolean,
-) {
-    Card(
-        shape = RoundedCornerShape(22.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = if (emphasized) {
-                MaterialTheme.colorScheme.primaryContainer
-            } else {
-                MaterialTheme.colorScheme.surface
-            },
-        ),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
-    ) {
-        Column(
-            modifier = Modifier.padding(18.dp),
-            verticalArrangement = Arrangement.spacedBy(9.dp),
-        ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Text(
-                    title,
-                    modifier = Modifier.weight(1f),
-                    fontWeight = FontWeight.Bold,
-                )
-                Surface(
-                    color = MaterialTheme.colorScheme.tertiaryContainer,
-                    shape = RoundedCornerShape(50),
-                ) {
-                    Text(
-                        badge,
-                        modifier = Modifier.padding(
-                            horizontal = 10.dp,
-                            vertical = 5.dp,
-                        ),
-                        style = MaterialTheme.typography.labelSmall,
-                    )
-                }
-            }
-            Text(weight)
-            Text(
-                memory,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            Text(
-                performance,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            LinearProgressIndicator(
-                progress = { progress },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(7.dp)
-                    .clip(RoundedCornerShape(50)),
             )
         }
     }

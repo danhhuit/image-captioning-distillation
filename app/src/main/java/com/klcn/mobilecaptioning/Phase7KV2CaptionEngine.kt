@@ -52,31 +52,56 @@ internal enum class CaptionModelMode(
     val studentFp32PackageMb: Double?,
     val decoderFixedBatchSize: Int = 1,
     val decoderAttentionMaskInt64: Boolean = false,
+    val studentParameters: Long? = null,
+    val vocabularyAsset: String = "v2/v2_word_vocabulary_minfreq5.json",
+    val vocabularyArrayKey: String = "id_to_token",
+    val vocabularySize: Int = 10_080,
+    val encoderInputName: String = "image",
+    val encoderOutputName: String = "visual_memory",
+    val decoderTokenIdsName: String = "decoder_input_ids",
+    val decoderMemoryName: String = "visual_memory",
+    val decoderAttentionMaskName: String = "decoder_attention_mask",
+    val decoderOutputName: String = "logits",
+    val runtimePrecision: String = "Dynamic INT8",
+    val maximumGeneratedTokens: Int = 31,
+    val minimumWordsBeforeEos: Int = 2,
+    val forbidUnknownToken: Boolean = true,
+    val experimental: Boolean = false,
+    val comingSoon: Boolean = false,
+    val datasetName: String = "MS COCO",
 ) {
     V1_FALLBACK(
         pairId = "V1",
         displayName = "V1 FP32",
         teacherName = "Mô hình tham chiếu V1",
         studentName = "Bộ suy luận V1",
-        encoderAsset = null,
-        decoderAsset = null,
-        expectedEncoderSha256 = null,
-        expectedDecoderSha256 = null,
+        encoderAsset = "baseline_encoder_fp32.onnx",
+        decoderAsset = "baseline_decoder_fp32.onnx",
+        expectedEncoderSha256 =
+            "59fbd6d24f0c82ceec27cf69ed05cda47fcb39d568b68a4a67f06dee080f19e3",
+        expectedDecoderSha256 =
+            "0b5c6fec9158a9c00847a554936faeeafcf2560ee75d9caf0bacba95cdea8adb",
         normalizationMean = floatArrayOf(0.485f, 0.456f, 0.406f),
         normalizationStd = floatArrayOf(0.229f, 0.224f, 0.225f),
         validationCiderD = null,
         validationBleu4 = null,
         validationCe = null,
-        packageBytes = null,
+        packageBytes = 34_569_336L,
         packageReductionFraction = null,
         kdMethodVi = "Không áp dụng",
         kdMethodEn = "Not applicable",
         teacherPackageMb = null,
         studentFp32PackageMb = null,
+        decoderFixedBatchSize = 3,
+        decoderAttentionMaskInt64 = true,
+        studentParameters = 8_480_816L,
+        vocabularySize = 12_293,
+        runtimePrecision = "FP32",
+        experimental = true,
     ),
     T1_S1(
         pairId = "T1-S1",
-        displayName = "T1→S1 INT8",
+        displayName = "T1→S1 Dense Map",
         teacherName = "T1 · ExpansionNet v2",
         studentName = "S1 · MobileNetV3-Large",
         encoderAsset = "v2/t1_s1/encoder_int8.onnx",
@@ -98,6 +123,33 @@ internal enum class CaptionModelMode(
         studentFp32PackageMb = 46.301860,
         decoderFixedBatchSize = 3,
         decoderAttentionMaskInt64 = true,
+        studentParameters = 8_990_352L,
+    ),
+    T1_S1_SEQUENCE(
+        pairId = "T1-S1-SEQ",
+        displayName = "T1→S1 Sequence KD",
+        teacherName = "T1 · ExpansionNet v2",
+        studentName = "S1 · MobileNetV3-Large",
+        encoderAsset = "v2/t1_s1_sequence/encoder_int8.onnx",
+        decoderAsset = "v2/t1_s1_sequence/decoder_int8.onnx",
+        expectedEncoderSha256 =
+            "16390358c41161a54e7af0598ff87336d22bcdb3ad837f7d6917d75edcd217eb",
+        expectedDecoderSha256 =
+            "0184a94a7ae7dfc5560dfba9aebae9222337e34de4d242f2b3b5c912adcec261",
+        normalizationMean = floatArrayOf(0.485f, 0.456f, 0.406f),
+        normalizationStd = floatArrayOf(0.229f, 0.224f, 0.225f),
+        validationCiderD = 1.1092022261075705,
+        validationBleu4 = 0.3464033873013923,
+        validationCe = 2.354636709833465,
+        packageBytes = 27_946_229L,
+        packageReductionFraction = 0.23013484706032017,
+        kdMethodVi = "Sequence KD",
+        kdMethodEn = "Sequence KD",
+        teacherPackageMb = 2_819.735367,
+        studentFp32PackageMb = 36.300161,
+        decoderFixedBatchSize = 1,
+        decoderAttentionMaskInt64 = false,
+        studentParameters = 8_990_352L,
     ),
     T2_S2(
         pairId = "T2-S2",
@@ -121,6 +173,7 @@ internal enum class CaptionModelMode(
         kdMethodEn = "Sequence KD",
         teacherPackageMb = 989.988954,
         studentFp32PackageMb = 43.601527,
+        studentParameters = 10_874_112L,
     ),
     T3_S3(
         pairId = "T3-S3",
@@ -144,6 +197,69 @@ internal enum class CaptionModelMode(
         kdMethodEn = "Direct Logit KD",
         teacherPackageMb = 1_055.013770,
         studentFp32PackageMb = 45.929777,
+        studentParameters = 10_925_684L,
+    ),
+    F30K_T3_S3_EXPERIMENTAL(
+        pairId = "F30K-T3-S3",
+        displayName = "F30K T3→S3 EXP",
+        teacherName = "T3 · SigLIP ViT-B/16 thích nghi Flickr30k",
+        studentName = "S3 · TinyViT-5M",
+        encoderAsset = "v2/f30k_t3_s3/f30k_t3s3_seed42_encoder_fp32.onnx",
+        decoderAsset = "v2/f30k_t3_s3/f30k_t3s3_seed42_decoder_dynamic_int8.onnx",
+        expectedEncoderSha256 =
+            "1ff7e46d053142bd1cccf0e02e9ffe0c6e38495274e4dc60aa5f059da03ae984",
+        expectedDecoderSha256 =
+            "ece2a7b788529e515467f28188b6e6eca0c680fb11c04104b683c21973ea2973",
+        normalizationMean = floatArrayOf(0.485f, 0.456f, 0.406f),
+        normalizationStd = floatArrayOf(0.229f, 0.224f, 0.225f),
+        validationCiderD = 0.6171285226440146,
+        validationBleu4 = 0.2799816946180795,
+        validationCe = 2.7555685628753697,
+        packageBytes = 28_503_127L,
+        packageReductionFraction = 0.42130889789589887,
+        kdMethodVi = "Chưng cất logit trực tiếp",
+        kdMethodEn = "Direct Logit-KD",
+        teacherPackageMb = 1_055.013770,
+        studentFp32PackageMb = 49.254476,
+        studentParameters = 10_251_316L,
+        vocabularyAsset = "v2/f30k_t3_s3/f30k_vocabulary_minfreq5.json",
+        vocabularyArrayKey = "tokens",
+        vocabularySize = 7_456,
+        encoderInputName = "images",
+        encoderOutputName = "memory",
+        decoderTokenIdsName = "token_ids",
+        decoderMemoryName = "memory",
+        decoderAttentionMaskName = "attention_mask",
+        decoderOutputName = "logits",
+        runtimePrecision = "FP32 encoder + Dynamic INT8 decoder",
+        maximumGeneratedTokens = 30,
+        minimumWordsBeforeEos = 0,
+        forbidUnknownToken = false,
+        experimental = true,
+        datasetName = "Flickr30k",
+    ),
+    T1_S1_HYBRID_COMING_SOON(
+        pairId = "T1-S1-HYBRID",
+        displayName = "T1→S1 Hybrid KD",
+        teacherName = "T1 · ExpansionNet v2",
+        studentName = "S1 · MobileNetV3-Large",
+        encoderAsset = null,
+        decoderAsset = null,
+        expectedEncoderSha256 = null,
+        expectedDecoderSha256 = null,
+        normalizationMean = floatArrayOf(0.485f, 0.456f, 0.406f),
+        normalizationStd = floatArrayOf(0.229f, 0.224f, 0.225f),
+        validationCiderD = null,
+        validationBleu4 = null,
+        validationCe = null,
+        packageBytes = null,
+        packageReductionFraction = null,
+        kdMethodVi = "Sequence KD + Dense Mapped Logit-KD",
+        kdMethodEn = "Sequence KD + Dense Mapped Logit-KD",
+        teacherPackageMb = 2_819.735367,
+        studentFp32PackageMb = null,
+        studentParameters = 8_990_352L,
+        comingSoon = true,
     );
 
     val isV2: Boolean
@@ -166,8 +282,20 @@ internal enum class CaptionModelMode(
     }
 
     companion object {
-        val researchModes: List<CaptionModelMode> = listOf(T1_S1, T2_S2, T3_S3)
-        val selectableModes: List<CaptionModelMode> = listOf(V1_FALLBACK) + researchModes
+        val mainModes: List<CaptionModelMode> = listOf(
+            T1_S1,
+            T1_S1_SEQUENCE,
+            T1_S1_HYBRID_COMING_SOON,
+            T2_S2,
+            T3_S3,
+        )
+        val researchModes: List<CaptionModelMode> = mainModes
+        val experimentalModes: List<CaptionModelMode> = listOf(
+            F30K_T3_S3_EXPERIMENTAL,
+            V1_FALLBACK,
+        )
+        val visibleModes: List<CaptionModelMode> = mainModes + experimentalModes
+        val selectableModes: List<CaptionModelMode> = visibleModes.filterNot { it.comingSoon }
     }
 }
 
@@ -176,12 +304,10 @@ internal enum class CaptionModelMode(
  * because the V1 and V2 tensor contracts are incompatible.
  */
 internal object Phase7KV2CaptionEngine {
-    private const val vocabularySize = 10_080
     private const val sequenceLength = 31
     private const val memoryTokens = 49
     private const val hiddenSize = 256
     private const val beamSize = 3
-    private const val minimumWords = 2
     private const val padId = 0L
     private const val bosId = 1L
     private const val eosId = 2L
@@ -203,6 +329,9 @@ internal object Phase7KV2CaptionEngine {
     @Synchronized
     fun initialize(context: Context, mode: CaptionModelMode): Double {
         require(mode.isV2) { "Phase7K V2 engine requires a V2 model mode" }
+        require(mode in CaptionModelMode.selectableModes) {
+            "${mode.displayName} is not available for inference"
+        }
         if (
             activeMode == mode &&
             encoderSession != null &&
@@ -225,13 +354,13 @@ internal object Phase7KV2CaptionEngine {
         }
 
         val vocabularyJson = JSONObject(
-            context.assets.open("v2/v2_word_vocabulary_minfreq5.json")
+            context.assets.open(mode.vocabularyAsset)
                 .bufferedReader()
                 .use { it.readText() },
         )
-        val vocabularyArray = vocabularyJson.getJSONArray("id_to_token")
-        check(vocabularyArray.length() == vocabularySize) {
-            "V2 vocabulary must contain exactly $vocabularySize tokens"
+        val vocabularyArray = vocabularyJson.getJSONArray(mode.vocabularyArrayKey)
+        check(vocabularyArray.length() == mode.vocabularySize) {
+            "${mode.pairId} vocabulary must contain exactly ${mode.vocabularySize} tokens"
         }
         val loadedVocabulary = List(vocabularyArray.length()) { index ->
             vocabularyArray.getString(index)
@@ -250,17 +379,17 @@ internal object Phase7KV2CaptionEngine {
         options.close()
 
         try {
-            check(loadedEncoder.inputNames == setOf("image"))
-            check(loadedEncoder.outputNames == setOf("visual_memory"))
+            check(loadedEncoder.inputNames == setOf(mode.encoderInputName))
+            check(loadedEncoder.outputNames == setOf(mode.encoderOutputName))
             check(
                 loadedDecoder.inputNames ==
                     setOf(
-                        "decoder_input_ids",
-                        "visual_memory",
-                        "decoder_attention_mask",
+                        mode.decoderTokenIdsName,
+                        mode.decoderMemoryName,
+                        mode.decoderAttentionMaskName,
                     ),
             )
-            check(loadedDecoder.outputNames == setOf("logits"))
+            check(loadedDecoder.outputNames == setOf(mode.decoderOutputName))
         } catch (error: Throwable) {
             loadedDecoder.close()
             loadedEncoder.close()
@@ -310,7 +439,7 @@ internal object Phase7KV2CaptionEngine {
         check(imageTensor.all(Float::isFinite))
 
         val encoderStartedAt = SystemClock.elapsedRealtimeNanos()
-        val visualMemory = runV2Encoder(encoder, imageTensor)
+        val visualMemory = runV2Encoder(encoder, imageTensor, mode)
         val encoderMs = (
             SystemClock.elapsedRealtimeNanos() - encoderStartedAt
         ) / 1_000_000.0
@@ -320,9 +449,9 @@ internal object Phase7KV2CaptionEngine {
         val beamStartedAt = SystemClock.elapsedRealtimeNanos()
         val beamResult = when {
             mode.decoderFixedBatchSize == 3 && mode.decoderAttentionMaskInt64 ->
-                decodeBeam3FixedBatch(decoder, visualMemory)
+                decodeBeam3FixedBatch(decoder, visualMemory, mode)
             mode.decoderFixedBatchSize == 1 && !mode.decoderAttentionMaskInt64 ->
-                decodeBeam3Sequential(decoder, visualMemory)
+                decodeBeam3Sequential(decoder, visualMemory, mode)
             else -> error("Unsupported decoder contract for ${mode.pairId}")
         }
         val beamMs = (
@@ -333,17 +462,27 @@ internal object Phase7KV2CaptionEngine {
         }
         val tokenIds = beamResult.tokenIds.take(beamResult.eosPosition + 1)
         val captionWords = tokenIds
-            .filter { tokenId -> tokenId !in setOf(0L, 1L, 2L) }
+            .filter { tokenId -> tokenId !in setOf(0L, 1L, 2L, 3L) }
             .map { tokenId ->
                 check(tokenId in 0 until indexToWord.size.toLong())
                 indexToWord[tokenId.toInt()]
             }
-        val caption = captionWords.joinToString(" ").trim()
+        val rawCaption = captionWords.joinToString(" ").trim()
+        val caption = if (mode.experimental) {
+            listOf(".", ",", "!", "?", ";", ":").fold(rawCaption) { text, mark ->
+                text.replace(" $mark", mark)
+            }
+        } else {
+            rawCaption
+        }
         val forbiddenBeforeEos = tokenIds
             .drop(1)
             .dropLast(1)
-            .any { tokenId -> tokenId in setOf(0L, 1L, 3L) }
-        check(captionWords.size >= minimumWords)
+            .any { tokenId ->
+                tokenId == 0L || tokenId == 1L ||
+                    (mode.forbidUnknownToken && tokenId == 3L)
+            }
+        check(captionWords.size >= mode.minimumWordsBeforeEos)
         check(caption.isNotBlank())
         check(!forbiddenBeforeEos)
 
@@ -386,9 +525,10 @@ internal object Phase7KV2CaptionEngine {
     private fun decodeBeam3Sequential(
         decoder: OrtSession,
         visualMemory: FloatArray,
+        mode: CaptionModelMode,
     ): BeamResult {
         var beams = listOf(Beam(tokens = listOf(bosId), score = 0f, finished = false))
-        for (generationStep in 0 until sequenceLength) {
+        for (generationStep in 0 until mode.maximumGeneratedTokens) {
             val candidates = mutableListOf<Beam>()
             for (beam in beams) {
                 if (beam.finished) {
@@ -407,13 +547,16 @@ internal object Phase7KV2CaptionEngine {
                     visualMemory = visualMemory,
                     inputIds = inputIds,
                     attentionMask = attentionMask,
+                    mode = mode,
                 )
                 val position = min(beam.tokens.size - 1, sequenceLength - 1)
-                val offset = position * vocabularySize
-                val maximumLogit = (0 until vocabularySize)
+                val offset = position * mode.vocabularySize
+                val normalizerStart = if (mode.experimental) 2 else 0
+                val normalizerTokenIds = normalizerStart until mode.vocabularySize
+                val maximumLogit = normalizerTokenIds
                     .maxOf { tokenId -> logits[offset + tokenId] }
                 var exponentialSum = 0.0
-                for (tokenId in 0 until vocabularySize) {
+                for (tokenId in normalizerTokenIds) {
                     exponentialSum += exp(
                         (logits[offset + tokenId] - maximumLogit).toDouble(),
                     )
@@ -422,9 +565,13 @@ internal object Phase7KV2CaptionEngine {
                 val topScores = FloatArray(beamSize) { Float.NEGATIVE_INFINITY }
                 val topTokenIds = IntArray(beamSize) { -1 }
                 val lexicalCount = max(0, beam.tokens.size - 1)
-                for (tokenId in 0 until vocabularySize) {
-                    if (tokenId == 0 || tokenId == 1 || tokenId == 3) continue
-                    if (lexicalCount < minimumWords && tokenId == eosId.toInt()) continue
+                for (tokenId in 0 until mode.vocabularySize) {
+                    if (tokenId == 0 || tokenId == 1) continue
+                    if (mode.forbidUnknownToken && tokenId == 3) continue
+                    if (
+                        lexicalCount < mode.minimumWordsBeforeEos &&
+                        tokenId == eosId.toInt()
+                    ) continue
                     insertTopToken(
                         score = (logits[offset + tokenId].toDouble() - logSumExp).toFloat(),
                         tokenId = tokenId,
@@ -464,9 +611,10 @@ internal object Phase7KV2CaptionEngine {
     private fun decodeBeam3FixedBatch(
         decoder: OrtSession,
         visualMemory: FloatArray,
+        mode: CaptionModelMode,
     ): BeamResult {
         var beams = listOf(Beam(tokens = listOf(bosId), score = 0f, finished = false))
-        for (generationStep in 0 until sequenceLength) {
+        for (generationStep in 0 until mode.maximumGeneratedTokens) {
             val active = beams.filterNot(Beam::finished)
             if (active.isEmpty()) {
                 break
@@ -486,15 +634,16 @@ internal object Phase7KV2CaptionEngine {
                 visualMemory = visualMemory,
                 inputIds = inputIds,
                 attentionMask = attentionMask,
+                mode = mode,
             )
             val candidates = beams.filter(Beam::finished).toMutableList()
             active.forEachIndexed { row, beam ->
                 val position = min(beam.tokens.size - 1, sequenceLength - 1)
-                val offset = (row * sequenceLength + position) * vocabularySize
-                val maximumLogit = (0 until vocabularySize)
+                val offset = (row * sequenceLength + position) * mode.vocabularySize
+                val maximumLogit = (0 until mode.vocabularySize)
                     .maxOf { tokenId -> logits[offset + tokenId] }
                 var exponentialSum = 0.0
-                for (tokenId in 0 until vocabularySize) {
+                for (tokenId in 0 until mode.vocabularySize) {
                     exponentialSum += exp(
                         (logits[offset + tokenId] - maximumLogit).toDouble(),
                     )
@@ -503,11 +652,17 @@ internal object Phase7KV2CaptionEngine {
                 val topScores = FloatArray(beamSize) { Float.NEGATIVE_INFINITY }
                 val topTokenIds = IntArray(beamSize) { -1 }
                 val lexicalCount = max(0, beam.tokens.size - 1)
-                for (tokenId in 0 until vocabularySize) {
-                    if (tokenId == 0 || tokenId == 1 || tokenId == 3) {
+                for (tokenId in 0 until mode.vocabularySize) {
+                    if (
+                        tokenId == 0 || tokenId == 1 ||
+                        (mode.forbidUnknownToken && tokenId == 3)
+                    ) {
                         continue
                     }
-                    if (lexicalCount < minimumWords && tokenId == eosId.toInt()) {
+                    if (
+                        lexicalCount < mode.minimumWordsBeforeEos &&
+                        tokenId == eosId.toInt()
+                    ) {
                         continue
                     }
                     val logProbability = (
@@ -568,13 +723,14 @@ internal object Phase7KV2CaptionEngine {
     private fun runV2Encoder(
         session: OrtSession,
         input: FloatArray,
+        mode: CaptionModelMode,
     ): FloatArray {
         OnnxTensor.createTensor(
             environment,
             FloatBuffer.wrap(input),
             longArrayOf(1, 3, 224, 224),
         ).use { inputTensor ->
-            session.run(mapOf("image" to inputTensor)).use { result ->
+            session.run(mapOf(mode.encoderInputName to inputTensor)).use { result ->
                 check(result.size() == 1)
                 val tensor = result.get(0) as? OnnxTensor
                     ?: error("V2 encoder output is not an OnnxTensor")
@@ -591,6 +747,7 @@ internal object Phase7KV2CaptionEngine {
         visualMemory: FloatArray,
         inputIds: LongArray,
         attentionMask: BooleanArray,
+        mode: CaptionModelMode,
     ): FloatArray {
         require(visualMemory.size == memoryTokens * hiddenSize)
         require(inputIds.size == sequenceLength)
@@ -621,9 +778,9 @@ internal object Phase7KV2CaptionEngine {
                 ).use { maskTensor ->
                     session.run(
                         mapOf(
-                            "decoder_input_ids" to idsTensor,
-                            "visual_memory" to memoryTensor,
-                            "decoder_attention_mask" to maskTensor,
+                            mode.decoderTokenIdsName to idsTensor,
+                            mode.decoderMemoryName to memoryTensor,
+                            mode.decoderAttentionMaskName to maskTensor,
                         ),
                     ).use { result ->
                         check(result.size() == 1)
@@ -644,6 +801,7 @@ internal object Phase7KV2CaptionEngine {
         visualMemory: FloatArray,
         inputIds: Array<LongArray>,
         attentionMask: Array<LongArray>,
+        mode: CaptionModelMode,
     ): FloatArray {
         require(visualMemory.size == memoryTokens * hiddenSize)
         require(inputIds.size == beamSize && attentionMask.size == beamSize)
@@ -680,9 +838,9 @@ internal object Phase7KV2CaptionEngine {
                 ).use { maskTensor ->
                     session.run(
                         mapOf(
-                            "decoder_input_ids" to idsTensor,
-                            "visual_memory" to memoryTensor,
-                            "decoder_attention_mask" to maskTensor,
+                            mode.decoderTokenIdsName to idsTensor,
+                            mode.decoderMemoryName to memoryTensor,
+                            mode.decoderAttentionMaskName to maskTensor,
                         ),
                     ).use { result ->
                         check(result.size() == 1)
@@ -691,7 +849,10 @@ internal object Phase7KV2CaptionEngine {
                         val outputBuffer = tensor.floatBuffer
                         val output = FloatArray(outputBuffer.remaining())
                         outputBuffer.get(output)
-                        check(output.size == beamSize * sequenceLength * vocabularySize)
+                        check(
+                            output.size ==
+                                beamSize * sequenceLength * mode.vocabularySize,
+                        )
                         return output
                     }
                 }

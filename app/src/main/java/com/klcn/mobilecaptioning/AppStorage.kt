@@ -76,7 +76,7 @@ internal object AppPreferences {
 
     fun loadModel(context: Context, ownerId: String): CaptionModelMode {
         val stored = VisionDatabase.get(context).loadPreference(ownerId, "selected_model")
-        return CaptionModelMode.entries.firstOrNull { it.name == stored }
+        return CaptionModelMode.selectableModes.firstOrNull { it.name == stored }
             ?: CaptionModelMode.V1_FALLBACK
     }
 

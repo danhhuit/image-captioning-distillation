@@ -343,7 +343,10 @@ private fun Phase8InteractiveScreen(
         onThemeModeChange = onThemeModeChange,
         onLanguageChange = onLanguageChange,
         onModelSelected = { updatedModel ->
-            if (updatedModel != selectedModel) {
+            if (
+                updatedModel in CaptionModelMode.selectableModes &&
+                updatedModel != selectedModel
+            ) {
                 authStore.recordActivity(
                     authSession,
                     "MODEL_SELECT",

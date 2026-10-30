@@ -462,6 +462,7 @@ internal fun VisionCaptionApp(
                 when (selectedDestination) {
                     AppDestination.Capture -> CaptureDestination(
                         labels = labels,
+                        language = language,
                         uiState = uiState,
                         selectedBitmap = selectedBitmap,
                         selectedModel = selectedModel,
@@ -895,6 +896,7 @@ private fun VisionNavigationBar(
 @Composable
 private fun CaptureDestination(
     labels: VisionStrings,
+    language: AppLanguage,
     uiState: CaptionUiState,
     selectedBitmap: Bitmap?,
     selectedModel: CaptionModelMode,
@@ -925,7 +927,7 @@ private fun CaptureDestination(
         item {
             SelectedModelBanner(
                 model = selectedModel,
-                labels = labels,
+                language = language,
                 enabled = uiState !is CaptionUiState.LoadingModel &&
                     uiState !is CaptionUiState.Processing,
                 onModelSelected = onModelSelected,
@@ -1105,59 +1107,18 @@ private fun QuickControlButton(
 @Composable
 private fun SelectedModelBanner(
     model: CaptionModelMode,
-    labels: VisionStrings,
+    language: AppLanguage,
     enabled: Boolean,
     onModelSelected: (CaptionModelMode) -> Unit,
 ) {
-    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        Surface(
-            modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(18.dp),
-            color = MaterialTheme.colorScheme.secondaryContainer,
-        ) {
-            Row(
-                modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(10.dp),
-            ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = model.displayName,
-                        style = MaterialTheme.typography.titleSmall,
-                        fontWeight = FontWeight.Bold,
-                    )
-                    Text(
-                        text = if (model.isV2) {
-                            "${model.studentName} · " +
-                                "${model.kdMethod(labels.capture == "Chụp")} · ONNX Runtime INT8"
-                        } else if (labels.capture == "Chụp") {
-                            "Mô hình tham chiếu · ONNX FP32"
-                        } else {
-                            "Reference model · ONNX FP32"
-                        },
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSecondaryContainer,
-                    )
-                }
-                Text(
-                    text = if (model.isV2) "V2" else "V1",
-                    style = MaterialTheme.typography.labelLarge,
-                    fontWeight = FontWeight.ExtraBold,
-                    color = MaterialTheme.colorScheme.primary,
-                )
-            }
-        }
-        LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            items(CaptionModelMode.selectableModes) { option ->
-                FilterChip(
-                    selected = model == option,
-                    enabled = enabled,
-                    onClick = { onModelSelected(option) },
-                    label = { Text(option.displayName, maxLines = 1) },
-                )
-            }
-        }
-    }
+    GroupedModelSelector(
+        selectedModel = model,
+        enabled = enabled,
+        language = language,
+        onModelSelected = onModelSelected,
+        compact = true,
+        showSelectedSummary = true,
+    )
 }
 
 @Composable
@@ -1809,30 +1770,31 @@ private fun runtimeContractFor(modelLabel: String): CaptionRuntimeContract {
         )
     }
 
-    val parameters = when (mode) {
-        CaptionModelMode.T1_S1 -> "8,990,352"
-        CaptionModelMode.T2_S2 -> "10,874,112"
-        CaptionModelMode.T3_S3 -> "10,925,684"
-        CaptionModelMode.V1_FALLBACK -> error("V1 handled above")
-    }
+    val parameters = mode.studentParameters?.let { "%,d".format(it) } ?: "—"
     val normalization = if (mode == CaptionModelMode.T2_S2) {
         "mean 0 / std 1"
     } else {
         "ImageNet mean / std"
     }
     return CaptionRuntimeContract(
-        model = mode.displayName,
-        runtime = "ONNX Runtime Android 1.29.0 · INT8",
+        model = "${mode.displayName} · ${mode.datasetName}",
+        runtime = "ONNX Runtime Android 1.29.0 · ${mode.runtimePrecision}",
         parameters = parameters,
         encoderAsset = requireNotNull(mode.encoderAsset).removePrefix("v2/"),
         decoderAsset = requireNotNull(mode.decoderAsset).removePrefix("v2/"),
-        vocabulary = "10,080 tokens · id_to_token",
+        vocabulary = "%,d tokens · %s".format(
+            mode.vocabularySize,
+            mode.vocabularyArrayKey,
+        ),
         resizePolicy = "shortest side 256 · bicubic",
         normalization = normalization,
-        encoderInput = "image · float32 [1,3,224,224]",
+        encoderInput = "${mode.encoderInputName} · float32 [1,3,224,224]",
         visualMemory = "float32 [1,49,256]",
-        attentionMask = "bool [1,31]",
-        decoderLogits = "float32 [1,31,10080]",
+        attentionMask = "${mode.decoderAttentionMaskName} · " +
+            "${if (mode.decoderAttentionMaskInt64) "int64" else "bool"} " +
+            "[${mode.decoderFixedBatchSize},31]",
+        decoderLogits =
+            "float32 [${mode.decoderFixedBatchSize},31,${mode.vocabularySize}]",
     )
 }
 
@@ -2731,15 +2693,14 @@ private fun SettingsDestination(
                 title = labels.model,
                 hint = selectedModel.displayName,
             ) {
-                LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    items(CaptionModelMode.selectableModes) { option ->
-                        FilterChip(
-                            selected = selectedModel == option,
-                            onClick = { onModelSelected(option) },
-                            label = { Text(option.displayName, maxLines = 1) },
-                        )
-                    }
-                }
+                GroupedModelSelector(
+                    selectedModel = selectedModel,
+                    enabled = true,
+                    language = language,
+                    onModelSelected = onModelSelected,
+                    compact = true,
+                    showSelectedSummary = false,
+                )
             }
         }
         item {

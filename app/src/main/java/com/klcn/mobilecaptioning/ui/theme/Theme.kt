@@ -15,8 +15,8 @@ private val DarkColorScheme = darkColorScheme(
     surfaceVariant = DarkSurfaceVariant,
     primaryContainer = DarkPrimaryContainer,
     onPrimaryContainer = DarkOnPrimaryContainer,
-    outline = androidx.compose.ui.graphics.Color(0xFF64748B),
-    outlineVariant = androidx.compose.ui.graphics.Color(0xFF334155),
+    outline = DarkOutline,
+    outlineVariant = DarkOutlineVariant,
 )
 
 private val LightColorScheme = lightColorScheme(
