@@ -678,7 +678,7 @@ internal class AuthStore(private val context: Context) {
                 else -> "Tài khoản đã bị khóa hoặc không có quyền truy cập."
             }
             404 -> when (error.message) {
-                "EMAIL_NOT_FOUND" -> "Email chưa tồn tại trong hệ thống."
+                "EMAIL_NOT_FOUND" -> "Email chưa được đăng ký."
                 else -> "Không tìm thấy dữ liệu yêu cầu."
             }
             409 -> when (error.message) {

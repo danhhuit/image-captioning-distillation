@@ -112,7 +112,7 @@ nối máy chủ**, chạy lại script trên và kiểm tra Docker Desktop.
    khoản dịch vụ đúng với thương hiệu Vision Caption.
 3. Xác minh domain và hoàn tất brand verification khi phát hành công khai.
 4. Gửi Google ID token đến backend qua HTTPS. Backend phải xác minh chữ ký,
-   `aud`, `iss`, `exp` và nonce trước khi cấp session riêng của hệ thống.
+   `aud`, `iss`, `exp` và nonce trước khi cấp phiên đăng nhập riêng của dịch vụ.
 5. Không hard-code tài khoản/mật khẩu Super Admin trong APK production.
 6. Lưu mật khẩu bằng thuật toán thích hợp phía server; áp dụng rate limit,
    khóa tạm thời, xác minh email và quy trình khôi phục qua email.

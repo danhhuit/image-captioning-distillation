@@ -81,7 +81,7 @@ internal fun GroupedModelSelector(
                 )
                 Text(
                     text = if (vietnamese) {
-                        "Mở một nhóm, sau đó chọn mô hình. Thông số bên dưới tự cập nhật theo lựa chọn."
+                        "Mở nhóm mô hình, sau đó chọn mô hình cần dùng. Thông số bên dưới tự cập nhật theo lựa chọn."
                     } else {
                         "Open a group and select a model. The details below update automatically."
                     },

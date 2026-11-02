@@ -6,11 +6,11 @@
 
 ## Tiếng Việt
 
-Vision Caption là ứng dụng nghiên cứu trên Android do một nhóm phát triển để
+Vision Caption là mini-app nghiên cứu trên Android do nhóm phát triển để
 thử nghiệm, đối chiếu và triển khai các mô hình chú thích ảnh gọn nhẹ. Ứng dụng
 nhận ảnh từ thư viện hoặc camera, sinh chú thích tiếng Anh trực tiếp trên thiết
 bị, dịch EN→VI, đọc kết quả bằng giọng Anh/Việt và chia sẻ ảnh kèm chú thích.
-Hệ thống cũng cung cấp lịch sử, yêu thích, quản lý tài khoản, giao diện Việt/Anh,
+Ứng dụng cũng cung cấp lịch sử, yêu thích, quản lý tài khoản, giao diện Việt/Anh,
 chế độ sáng/tối và danh mục mô hình kèm cấu hình thực nghiệm.
 
 Phiên bản Android hiện tại: **1.7.0**.
@@ -23,7 +23,7 @@ Phiên bản Android hiện tại: **1.7.0**.
 ## Mục lục
 
 1. [Tính năng chính](#1-tính-năng-chính)
-2. [Kiến trúc hệ thống](#2-kiến-trúc-hệ-thống)
+2. [Kiến trúc ứng dụng](#2-kiến-trúc-ứng-dụng)
 3. [Yêu cầu máy phát triển](#3-yêu-cầu-máy-phát-triển)
 4. [Yêu cầu thiết bị Android](#4-yêu-cầu-thiết-bị-android)
 5. [Cấu trúc mã nguồn](#5-cấu-trúc-mã-nguồn)
@@ -69,11 +69,11 @@ Phiên bản Android hiện tại: **1.7.0**.
   - khóa/mở khóa tài khoản;
   - cập nhật họ tên hoặc đặt lại mật khẩu người dùng;
   - cấu hình quyền;
-  - xem nhật ký hoạt động toàn hệ thống.
+  - xem nhật ký hoạt động của ứng dụng.
 - Giao diện tiếng Việt/English và Light/Dark/System theme.
 - Thanh điều hướng 5 mục: Lịch sử, Yêu thích, Chụp, Mô hình và Cá nhân.
 
-## 2. Kiến trúc hệ thống
+## 2. Kiến trúc ứng dụng
 
 ```text
 Ảnh từ Camera/Thư viện
@@ -143,7 +143,7 @@ docker compose version
 adb version
 ```
 
-Mã nguồn sử dụng Gradle Wrapper nên không cần cài Gradle toàn hệ thống.
+Mã nguồn sử dụng Gradle Wrapper nên không cần cài Gradle riêng trên máy.
 
 ## 4. Yêu cầu thiết bị Android
 
@@ -567,7 +567,7 @@ Set-ExecutionPolicy -Scope Process Bypass
 ```
 
 Để kiểm thử, đăng ký một tài khoản bằng hộp thư thật, chọn **Quên mật khẩu**,
-nhập đúng email đã tồn tại trong hệ thống, sau đó nhập OTP, mật khẩu mới và
+nhập đúng email đã đăng ký, sau đó nhập OTP, mật khẩu mới và
 xác nhận mật khẩu. Username, email chưa đăng ký và tài khoản Google không có
 mật khẩu cục bộ đều không được chấp nhận ở luồng này.
 OTP hết hạn sau 10 phút, dùng một lần và bị khóa sau 5 lần nhập sai.
@@ -1055,7 +1055,7 @@ Tài liệu liên quan:
 
 **[Tiếng Việt](#tiếng-việt) | [English](#english)**
 
-Vision Caption is an Android research application developed by a team to
+Vision Caption is an Android research mini-app developed by a team to
 evaluate and deploy compact image-captioning models. It accepts camera or
 gallery images, generates an English caption on the device, translates it into
 Vietnamese, reads either language aloud, and shares a composed image containing
