@@ -245,23 +245,38 @@ private fun ModelGroupOptions(
                     Spacer(Modifier.width(4.dp))
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
-                            text = model.displayName,
+                            text = model.teacherStudentLabel(),
                             style = MaterialTheme.typography.titleSmall,
                             fontWeight = FontWeight.SemiBold,
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                        Text(
+                            text = model.datasetName,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis,
                         )
                         Text(
-                            text = "${model.kdMethod(vietnamese)} · ${model.datasetName}",
+                            text = model.kdMethod(vietnamese),
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             maxLines = if (compact) 1 else 2,
                             overflow = TextOverflow.Ellipsis,
                         )
+                        model.ciderComparison(vietnamese)?.let { comparison ->
+                            Text(
+                                text = comparison,
+                                style = MaterialTheme.typography.labelMedium,
+                                color = MaterialTheme.colorScheme.primary,
+                                fontWeight = FontWeight.SemiBold,
+                            )
+                        }
                     }
                     if (model.comingSoon) {
                         Text(
-                            text = "COMING SOON",
+                            text = if (vietnamese) "SẮP RA MẮT" else "COMING SOON",
                             style = MaterialTheme.typography.labelSmall,
                             fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -292,30 +307,42 @@ private fun SelectedModelSummary(
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
         Text(
-            text = model.displayName,
+            text = model.teacherStudentLabel(),
             style = MaterialTheme.typography.titleSmall,
             fontWeight = FontWeight.Bold,
         )
         Text(
-            text = "${model.studentName} · ${model.runtimePrecision}",
+            text = model.datasetName,
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
-        val metric = model.validationCiderD?.let {
-            "CIDEr-D ${"%.2f".format(it * 100.0)}"
+        Text(
+            text = model.kdMethod(vietnamese),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        model.ciderComparison(vietnamese)?.let { comparison ->
+            Text(
+                text = comparison,
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.primary,
+                fontWeight = FontWeight.SemiBold,
+            )
         }
-        val size = model.studentInt8PackageMb?.let {
-            "${"%.2f".format(it)} MB"
-        }
-        listOfNotNull(metric, size)
-            .takeIf { it.isNotEmpty() }
-            ?.let { values ->
-                Text(
-                    text = values.joinToString(" · "),
-                    style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.primary,
-                    fontWeight = FontWeight.SemiBold,
-                )
-            }
     }
+}
+
+private fun CaptionModelMode.teacherStudentLabel(): String = when (this) {
+    CaptionModelMode.V1_FALLBACK -> displayName
+    else -> "$teacherName -> $studentName"
+}
+
+private fun CaptionModelMode.ciderComparison(vietnamese: Boolean): String? {
+    val baseline = baselineCiderD ?: return validationCiderD?.let { kd ->
+        "CIDEr-D KD ${"%.2f".format(kd * 100.0)}"
+    }
+    val kd = validationCiderD ?: return null
+    val baselineLabel = if (vietnamese) "cơ sở" else "baseline"
+    return "CIDEr-D $baselineLabel ${"%.2f".format(baseline * 100.0)} → " +
+        "KD ${"%.2f".format(kd * 100.0)}"
 }

@@ -1379,7 +1379,13 @@ private fun DeviceMetricCard(
                     "${"%.1f".format(totalRamGb)} GiB " +
                     if (vietnamese) "khả dụng" else "available",
             )
-            Text("CPU: $cpuCores logical cores")
+            Text(
+                if (vietnamese) {
+                    "CPU: $cpuCores lõi logic"
+                } else {
+                    "CPU: $cpuCores logical cores"
+                },
+            )
             Text(
                 (if (vietnamese) "Ứng dụng: " else "Application: ") +
                     "${"%.1f".format(appPssMb)} MiB PSS",
@@ -2329,7 +2335,7 @@ internal fun FeatureHeader(
         IconButton(onClick = onOpenMenu) {
             Icon(
                 painter = painterResource(R.drawable.ic_menu),
-                contentDescription = "Mở menu",
+                contentDescription = "Menu",
             )
         }
         Column(modifier = Modifier.weight(1f)) {

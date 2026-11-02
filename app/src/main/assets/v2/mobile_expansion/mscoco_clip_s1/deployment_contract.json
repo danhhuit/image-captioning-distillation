@@ -1,0 +1,111 @@
+{
+  "schema_version": "klcn_v2_mobile_android_deployment_contract_v1",
+  "created_at_utc": "2026-11-02T08:12:15.452583+00:00",
+  "status": "locked",
+  "experiment_id": "KLCN_V2_MOB_MSCOCO_CLIPS1_Android_Lock",
+  "model_id": "MSCOCO_CLIPS1",
+  "teacher": "CLIP ViT-B/32",
+  "student": "MobileNetV3-Large",
+  "dataset": "MS COCO 2014",
+  "method": "Direct Logit-KD",
+  "seed": 123,
+  "model_group": "experimental",
+  "precision": {
+    "encoder": "FP32",
+    "decoder": "dynamic INT8"
+  },
+  "runtime_contract": {
+    "encoder_input": "image",
+    "encoder_output": "visual_memory",
+    "decoder_inputs": [
+      "decoder_input_ids",
+      "visual_memory",
+      "decoder_attention_mask"
+    ],
+    "decoder_output": "logits",
+    "decoder_batch": 3,
+    "decoder_steps": 31,
+    "mask_dtype": "tensor(int64)",
+    "vocabulary_size": 10080
+  },
+  "decoding": {
+    "beam_size": 3,
+    "length_penalty": 0.7,
+    "max_steps": 30
+  },
+  "metrics": {
+    "onnx_fp32": {
+      "BLEU_1": 0.7236445010162245,
+      "BLEU_4": 0.31479379117702283,
+      "METEOR": 0.2598073325128863,
+      "ROUGE_L": 0.5387676977008156,
+      "CIDEr_D": 1.004451013192079,
+      "ce_loss": 2.052158654077587
+    },
+    "mixed_int8": {
+      "BLEU_1": 0.7242894693609183,
+      "BLEU_4": 0.31690191965576553,
+      "METEOR": 0.26061782488641627,
+      "ROUGE_L": 0.5401994831756212,
+      "CIDEr_D": 1.0073059607445285,
+      "ce_loss": 2.052571870949465
+    },
+    "mixed_minus_fp32": {
+      "BLEU_1": 0.0006449683446938526,
+      "BLEU_4": 0.002108128478742699,
+      "METEOR": 0.0008104923735299807,
+      "ROUGE_L": 0.0014317854748056025,
+      "CIDEr_D": 0.002854947552449527,
+      "ce_loss": 0.0004132168718777862
+    },
+    "x100": {
+      "onnx_fp32": {
+        "BLEU_1": 72.36,
+        "BLEU_4": 31.48,
+        "METEOR": 25.98,
+        "ROUGE_L": 53.88,
+        "CIDEr_D": 100.45
+      },
+      "mixed_int8": {
+        "BLEU_1": 72.43,
+        "BLEU_4": 31.69,
+        "METEOR": 26.06,
+        "ROUGE_L": 54.02,
+        "CIDEr_D": 100.73
+      }
+    }
+  },
+  "selected_size": {
+    "fp32_reference_bytes": 46301860,
+    "selected_bytes": 21493216,
+    "fp32_reference_mib": 44.15689468383789,
+    "selected_mib": 20.497528076171875,
+    "reduction_fraction": 0.5358023198204133
+  },
+  "artifacts": [
+    {
+      "relative_path": "android_package/mscoco_clips1_encoder_fp32.onnx",
+      "bytes": 12914651,
+      "sha256": "994acdcb22849f2d7fc9d36a0acb63c3c49d3d584483fc94c53aabab3a5da636"
+    },
+    {
+      "relative_path": "android_package/mscoco_clips1_decoder_dynamic_int8.onnx",
+      "bytes": 8578565,
+      "sha256": "b30500320817c00825308305bbd740f24ad64685dfc34304ac0d195f04d7ec22"
+    },
+    {
+      "relative_path": "android_package/word_vocabulary_minfreq5.json",
+      "bytes": 147712,
+      "sha256": "1c6c7e6146d2700932c82be6f076d93153c757c10a1844076abaea9c11496f97"
+    }
+  ],
+  "source": {
+    "validation_sha256": "ba1125f5a551e65fffd803a4638230e57af846f1380c66c5e4a4d0e7191050e6",
+    "preflight_sha256": "b524803ebbf496da985f8d9df0ace919d4843d1148c4fb57405420f474fa0e00",
+    "noninferiority_sha256": "71d7e5ff6da8e4319a4c8d60b12588b4827248ce53aa2c06797a773e06db89ca"
+  },
+  "validation_gate_passed": true,
+  "test_set_used": false,
+  "android_assets_authorized": true,
+  "next_phase_authorized": "KLCN_V2_MOB_MSCOCO_CLIPS1_Android_Integration"
+}

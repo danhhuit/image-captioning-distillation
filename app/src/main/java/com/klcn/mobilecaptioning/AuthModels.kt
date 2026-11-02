@@ -698,6 +698,8 @@ internal class AuthStore(private val context: Context) {
             422 -> "Thông tin chưa hợp lệ. Vui lòng kiểm tra lại."
             else -> "Có lỗi xảy ra. Vui lòng thử lại."
         }
+        is CentralApiConnectionException ->
+            "Không thể kết nối máy chủ. Hãy khởi động backend rồi thử lại."
         else -> "Không thể kết nối. Vui lòng thử lại."
     }
 

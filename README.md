@@ -1,17 +1,24 @@
 # Vision Caption
 
-Ứng dụng Android sinh chú thích tiếng Anh cho ảnh bằng các mô hình Image
-Captioning chạy trực tiếp trên thiết bị. Vision Caption hỗ trợ ảnh từ thư viện
-hoặc camera, dịch EN→VI trên thiết bị, đọc chú thích bằng giọng Anh/Việt,
-chia sẻ ảnh đã ghép chú thích, nhiều mô hình ONNX tối ưu cho mobile, lịch sử
-và yêu thích theo từng tài khoản, giao diện Việt/Anh, chế độ sáng/tối, đăng
-nhập Google và màn hình quản trị người dùng.
+**[Tiếng Việt](#tiếng-việt) | [English](#english)**
+
+<a id="tiếng-việt"></a>
+
+## Tiếng Việt
+
+Vision Caption là ứng dụng nghiên cứu trên Android do một nhóm phát triển để
+thử nghiệm, đối chiếu và triển khai các mô hình chú thích ảnh gọn nhẹ. Ứng dụng
+nhận ảnh từ thư viện hoặc camera, sinh chú thích tiếng Anh trực tiếp trên thiết
+bị, dịch EN→VI, đọc kết quả bằng giọng Anh/Việt và chia sẻ ảnh kèm chú thích.
+Hệ thống cũng cung cấp lịch sử, yêu thích, quản lý tài khoản, giao diện Việt/Anh,
+chế độ sáng/tối và danh mục mô hình kèm cấu hình thực nghiệm.
 
 Phiên bản Android hiện tại: **1.7.0**.
 
-> Đây là sản phẩm nghiên cứu. Các chỉ số hiển thị trong ứng dụng là kết quả
-> Validation, không phải phần trăm độ chính xác. Chất lượng caption có thể thay
-> đổi theo ảnh và mô hình được chọn.
+> Đây là ứng dụng nghiên cứu, không phải công cụ đánh giá ảnh trong tình huống
+> an toàn hoặc y tế. Các chỉ số trong giao diện là kết quả trên tập Validation
+> và được nhân 100 để dễ đọc; chúng không phải phần trăm độ chính xác. Chất
+> lượng chú thích phụ thuộc vào ảnh đầu vào, tập dữ liệu và mô hình được chọn.
 
 ## Mục lục
 
@@ -39,11 +46,11 @@ Phiên bản Android hiện tại: **1.7.0**.
 
 - Sinh caption từ ảnh trong thư viện hoặc ảnh chụp bằng camera.
 - Inference ngoại tuyến trên thiết bị với ONNX Runtime Android.
-- Bốn lựa chọn runtime:
-  - V1 FP32 fallback;
-  - T1 → S1 INT8;
-  - T2 → S2 INT8;
-  - T3 → S3 INT8.
+- Hai nhóm mô hình có thể chuyển trực tiếp trong giao diện:
+  - mô hình chính đã qua cổng kiểm định của nghiên cứu;
+  - mô hình thử nghiệm dùng để đối chiếu phương pháp và tập dữ liệu.
+- Tên cặp mô hình dùng thống nhất định dạng
+  `Tn: <Teacher> -> Sn: <Student>`; V1 FP32 được giữ làm mô hình tham chiếu.
 - Beam Search với beam size 3.
 - Dịch caption tiếng Anh sang tiếng Việt bằng ML Kit on-device; lần đầu cần
   mạng để tải language pack, các lần sau có thể dịch ngoại tuyến.
@@ -136,11 +143,11 @@ docker compose version
 adb version
 ```
 
-Project sử dụng Gradle Wrapper nên không cần cài Gradle toàn hệ thống.
+Mã nguồn sử dụng Gradle Wrapper nên không cần cài Gradle toàn hệ thống.
 
 ## 4. Yêu cầu thiết bị Android
 
-Thông số được khóa trong project:
+Thông số được khóa trong cấu hình nghiên cứu:
 
 | Thuộc tính | Giá trị |
 |---|---|
@@ -208,7 +215,7 @@ Các file Android quan trọng:
 | File | Vai trò |
 |---|---|
 | `MainActivity.kt` | Điều phối chọn ảnh và inference |
-| `Phase7KV2CaptionEngine.kt` | Runtime ba mô hình V2 INT8 |
+| `Phase7KV2CaptionEngine.kt` | Registry và runtime các mô hình ONNX trên thiết bị |
 | `VisionCaptionApp.kt` | UI Jetpack Compose và điều hướng |
 | `AuthModels.kt` | Đăng nhập, Google Identity và session |
 | `CentralApiClient.kt` | Gọi FastAPI/JWT |
@@ -249,6 +256,16 @@ lại `git lfs pull`.
 cd "D:\KLCN\backend"
 Set-ExecutionPolicy -Scope Process Bypass
 .\setup.ps1
+```
+
+Khi kiểm thử bằng emulator, có thể dùng script một lệnh từ thư mục mã nguồn.
+Script khởi động Docker, kiểm tra API, cấu hình địa chỉ backend cho emulator
+và xác minh thiết bị ADB:
+
+```powershell
+cd "D:\KLCN\src"
+.\scripts\start_android_test_environment.ps1 `
+  -DeviceSerial "emulator-5554"
 ```
 
 ### Bước 3 — Kiểm tra API
@@ -629,8 +646,12 @@ ML Kit tải language pack EN/VI trong lần dịch đầu tiên. Ảnh không �
 Có thể đổi mô hình trực tiếp tại màn hình **Chụp**, tab **Mô hình**, hoặc
 **Thêm → Mô hình**.
 
-- V1 FP32 là fallback mặc định.
-- Ba model V2 sử dụng ONNX INT8.
+- Mở **Mô hình chính** hoặc **Mô hình thử nghiệm** bằng nút mũi tên.
+- Chọn đúng thẻ mô hình để dùng mô hình đó cho lần sinh chú thích tiếp theo.
+- Mỗi thẻ hiển thị theo bốn dòng: cặp Teacher–Student, tập dữ liệu, phương
+  pháp chưng cất tri thức và CIDEr-D cơ sở → CIDEr-D sau chưng cất.
+- Tên cặp mô hình luôn theo dạng `Tn: <Teacher> -> Sn: <Student>`.
+- V1 FP32 là mô hình tham chiếu và nằm đầu nhóm thử nghiệm.
 - Lần đầu đổi model có thể mất thêm thời gian để nạp encoder/decoder.
 - Ứng dụng kiểm tra SHA-256 của model trước khi tạo ONNX session.
 
@@ -690,18 +711,33 @@ có trigger chặn hard-delete; Super Admin cũng được bảo vệ khỏi kh�
 
 ## 13. Mô hình có trong ứng dụng
 
-| Runtime | Encoder Student | Quantization | Validation CIDEr-D | BLEU-4 |
+CIDEr-D dưới đây là chỉ số Validation đã nhân 100. Cột “KD” phản ánh kết quả
+sau chưng cất, không phải tỷ lệ chính xác và không dùng để so sánh trực tiếp
+giữa MSCOCO 2014 với Flickr30K.
+
+### Mô hình chính
+
+| Cặp Teacher -> Student | Tập dữ liệu | Phương pháp KD | CIDEr-D cơ sở | CIDEr-D KD |
 |---|---|---|---:|---:|
-| V1 FP32 | Baseline fallback | FP32 | Tham chiếu nội bộ | — |
-| T1 → S1 | MobileNetV3-Large | Encoder + Decoder INT8 | 1.1092 | 0.3464 |
-| T2 → S2 | MobileViT-S | Encoder + Decoder INT8 | 1.0207 | 0.3237 |
-| T3 → S3 | TinyViT-5M | Decoder INT8 | 1.0940 | 0.3434 |
+| T1: ExpansionNet v2 -> S1: MobileNetV3-Large | MSCOCO 2014 | Sequence KD | 98,58 | 110,92 |
+| T1: ExpansionNet v2 -> S1: MobileNetV3-Large | MSCOCO 2014 | Dense-Mapped Logit-KD | 98,58 | 108,45 |
+| T1: ExpansionNet v2 -> S1: MobileNetV3-Large | MSCOCO 2014 | Hybrid Sequence + Dense-Mapped Logit-KD | 98,58 | 109,95 |
+| T2: BLIP Base -> S2: MobileViT-S | MSCOCO 2014 | Sequence KD | 99,32 | 102,07 |
+| T3: SigLIP ViT-B/16 -> S3: TinyViT-5M | MSCOCO 2014 | Direct Logit-KD | 107,48 | 109,40 |
 
-Teacher tương ứng:
+### Mô hình thử nghiệm
 
-- T1: ExpansionNet v2.
-- T2: BLIP.
-- T3: SigLIP ViT-B/16.
+Thứ tự trong bảng cũng là thứ tự hiển thị trong ứng dụng.
+
+| Cặp Teacher -> Student | Tập dữ liệu | Phương pháp KD | CIDEr-D cơ sở | CIDEr-D KD |
+|---|---|---|---:|---:|
+| V1 FP32 | MSCOCO 2014 | Mô hình tham chiếu FP32 | — | — |
+| T1: CLIP ViT-B/32 -> S1: MobileNetV3-Large | MSCOCO 2014 | Direct Logit-KD | 98,73 | 100,73 |
+| T1: ExpansionNet v2 -> S1: MobileNetV3-Large | Flickr30K | Sequence KD | 47,62 | 38,49 |
+| T1: ExpansionNet v2 -> S1: MobileNetV3-Large | Flickr30K | Dense-Mapped Logit-KD | 47,62 | 36,93 |
+| T1: ExpansionNet v2 -> S1: MobileNetV3-Large | Flickr30K | Hybrid Sequence + Dense-Mapped Logit-KD | 47,70 | 38,07 |
+| T2: BLIP Base -> S2: MobileViT-S | Flickr30K | Sequence KD | 50,10 | 42,33 |
+| T3: SigLIP ViT-B/16 -> S3: TinyViT-5M | Flickr30K | Direct Logit-KD | 57,07 | 61,71 |
 
 Các model V2 dùng:
 
@@ -714,8 +750,10 @@ Beam size         : 3
 Minimum words     : 2
 ```
 
-Các metric trên là Validation metric. Held-out Test của nghiên cứu vẫn được
-niêm phong và không được dùng để quảng cáo chất lượng production.
+Các chỉ số trên là Validation metric được ghi trong registry của ứng dụng.
+Kết quả Flickr30K cho thấy một số nhánh KD thấp hơn baseline; các nhánh đó được
+giữ ở nhóm thử nghiệm để phân tích, không được diễn giải là cải thiện. Held-out
+Test được mở theo protocol riêng và không dùng để chọn lại mô hình.
 
 ## 14. Dữ liệu và chế độ ngoại tuyến
 
@@ -796,7 +834,7 @@ adb devices
 - User A không thấy dữ liệu User B.
 - Khóa user từ Admin và xác minh user mất quyền truy cập.
 - Cập nhật quyền và refresh session.
-- Chạy caption với cả bốn runtime.
+- Chạy caption lần lượt với mọi mô hình đang cho phép chọn.
 - Chuyển Việt/Anh và Light/Dark trên mọi màn hình.
 - Tắt API, tạo caption, bật lại API và kiểm tra đồng bộ.
 
@@ -1004,6 +1042,324 @@ có dữ liệu, cần tạo migration mới. Không dùng `-Recreate` chỉ đ�
 - Held-out Test của nghiên cứu vẫn niêm phong.
 
 Tài liệu liên quan:
+
+- [AUTH_PRODUCTION_SETUP.md](AUTH_PRODUCTION_SETUP.md)
+- [DATABASE_ARCHITECTURE.md](DATABASE_ARCHITECTURE.md)
+- [MOBILE_UX_PRODUCT_ROADMAP.md](MOBILE_UX_PRODUCT_ROADMAP.md)
+
+---
+
+<a id="english"></a>
+
+## English
+
+**[Tiếng Việt](#tiếng-việt) | [English](#english)**
+
+Vision Caption is an Android research application developed by a team to
+evaluate and deploy compact image-captioning models. It accepts camera or
+gallery images, generates an English caption on the device, translates it into
+Vietnamese, reads either language aloud, and shares a composed image containing
+both captions. The application also includes per-account history and favorites,
+Vietnamese/English UI, light and dark themes, account administration, and a
+model registry with experiment metadata.
+
+Current Android version: **1.7.0**.
+
+> This is a research application, not a safety- or medical-grade image
+> interpretation tool. Metrics shown in the UI are Validation results scaled
+> by 100 for readability; they are not accuracy percentages. Caption quality
+> varies with the input image, dataset, and selected model.
+
+### 1. Main capabilities
+
+- Generate captions from camera and gallery images.
+- Run ONNX inference locally with ONNX Runtime Android.
+- Switch between primary and experimental model groups.
+- Use a consistent model-pair label: `Tn: <Teacher> -> Sn: <Student>`.
+- Decode captions with Beam Search (`beam size = 3`).
+- Translate English captions into Vietnamese with on-device ML Kit. The first
+  translation may require a network connection to download the language pack.
+- Read English and Vietnamese text with Android Text-to-Speech.
+- Share the source image together with its English and Vietnamese captions.
+- Display tensor contracts, preprocessing, model files, runtime, and experiment
+  metrics for the selected model.
+- Authenticate with username/email and password or Google Credential Manager.
+- Continue as Guest when account-backed features are not required.
+- Store account data centrally in PostgreSQL and use SQLite as the Android
+  cache/offline store.
+- Provide resource/action RBAC and Super Admin account management.
+
+### 2. System architecture
+
+```text
+Camera / Gallery image
+        |
+        v
+Android app (Jetpack Compose)
+        |
+        +-- ONNX Runtime Android
+        |     +-- visual encoder
+        |     +-- visual memory
+        |     +-- Transformer decoder
+        |     +-- Beam Search
+        |
+        +-- SQLite cache and sync outbox
+        |
+        +-- development HTTP / production HTTPS API
+                    |
+                    v
+                 FastAPI
+                    |
+                    v
+                PostgreSQL
+```
+
+Full-resolution images are processed on Android. An authenticated account may
+sync permitted caption metadata and thumbnails. The backend derives the user
+from the JWT instead of trusting a client-supplied `user_id`. The APK never
+connects directly to PostgreSQL and does not contain database credentials.
+
+### 3. Development requirements
+
+| Component | Requirement |
+|---|---|
+| Operating system | Windows 10/11 64-bit |
+| Android Studio | Version compatible with Android Gradle Plugin 9.4 |
+| Android SDK | Compile SDK 36 |
+| JDK | JDK 17 |
+| Docker | Docker Desktop with WSL 2 backend |
+| Android tools | `adb`, emulator or 64-bit physical device |
+| Source control | Git and Git LFS |
+
+Recommended host resources are at least 16 GB RAM and 25 GB free disk space.
+An emulator should use a Google Play x86_64 system image with at least 4 GB RAM.
+For latency, memory, and thermal measurements, use a physical arm64 device;
+emulator measurements are smoke-test evidence only.
+
+### 4. Quick setup
+
+Clone the repository and retrieve model assets:
+
+```powershell
+git clone https://github.com/danhhuit/image-captioning-distillation.git
+cd image-captioning-distillation
+git lfs install
+git lfs pull
+```
+
+Start the backend:
+
+```powershell
+cd "D:\KLCN\backend"
+Set-ExecutionPolicy -Scope Process Bypass
+.\setup.ps1
+```
+
+Verify the API:
+
+```powershell
+Invoke-RestMethod http://127.0.0.1:8000/health
+```
+
+For an emulator test session, the helper script starts/checks the services and
+verifies the selected ADB device:
+
+```powershell
+cd "D:\KLCN\src"
+.\scripts\start_android_test_environment.ps1 `
+  -DeviceSerial "emulator-5554"
+```
+
+Build and install the debug APK:
+
+```powershell
+.\gradlew.bat :app:assembleDebug
+adb install -r .\app\build\outputs\apk\debug\app-debug.apk
+```
+
+The Android emulator reaches the host API through
+`http://10.0.2.2:8000`. A USB device can use `adb reverse` and
+`http://localhost:8000`. A physical device on the local network must use the
+host computer's LAN address and a firewall rule that exposes only the API port
+to the trusted network.
+
+### 5. Docker, FastAPI, and PostgreSQL
+
+The initial `D:\KLCN\backend\setup.ps1` run creates `.env` from the example,
+generates secrets, builds the FastAPI image, starts PostgreSQL, applies the
+initial schema to a new volume, and waits for health checks.
+
+```powershell
+cd "D:\KLCN\backend"
+docker compose ps
+docker compose logs --tail 100 api
+Invoke-RestMethod http://127.0.0.1:8000/health
+```
+
+Default development endpoints:
+
+| Service | Host address |
+|---|---|
+| FastAPI | `127.0.0.1:8000` |
+| Swagger/OpenAPI | `http://127.0.0.1:8000/docs` |
+| PostgreSQL | `127.0.0.1:15432` |
+| PostgreSQL inside Compose | `postgres:5432` |
+| API from Android Emulator | `10.0.2.2:8000` |
+
+Important `.env` values have separate purposes:
+
+- `POSTGRES_PASSWORD` is used by PostgreSQL and DBeaver.
+- `ADMIN_PASSWORD` is the Super Admin application password.
+- `JWT_SECRET` is backend-only.
+- `GOOGLE_WEB_CLIENT_ID` must match the Android configuration.
+
+Do not commit `.env`. Use `docker compose stop/start` to preserve containers
+and data. `docker compose down` removes containers but retains the named volume.
+`setup.ps1 -Recreate` deletes the PostgreSQL volume and is only appropriate for
+a disposable test environment after required data has been backed up.
+
+### 6. Google Sign-In and password recovery
+
+Google Sign-In requires an OAuth consent screen, an Android OAuth client for
+the application package and signing SHA-1, and a Web OAuth client. The Web
+Client ID must be identical in Android resources and backend `.env`. A testing
+consent screen also requires each tester to be listed as a test user.
+
+Password recovery only accepts an email already registered in the system. In
+production, the backend sends a time-limited verification code to that address.
+The user must provide the code, a new password, and the same password again for
+confirmation. Configure the SMTP values in backend `.env`; never expose SMTP
+credentials in the APK or source control.
+
+### 7. Selecting and interpreting models
+
+Open **Primary models** or **Experimental models** with the arrow button, then
+select a card. The next caption request uses that model. Each card presents:
+
+1. the concrete Teacher -> Student pair;
+2. the training dataset;
+3. the KD method;
+4. baseline CIDEr-D -> distilled CIDEr-D.
+
+All values below are Validation CIDEr-D scaled by 100.
+
+#### Primary models
+
+| Teacher -> Student | Dataset | KD method | Baseline | KD |
+|---|---|---|---:|---:|
+| T1: ExpansionNet v2 -> S1: MobileNetV3-Large | MSCOCO 2014 | Sequence KD | 98.58 | 110.92 |
+| T1: ExpansionNet v2 -> S1: MobileNetV3-Large | MSCOCO 2014 | Dense-Mapped Logit-KD | 98.58 | 108.45 |
+| T1: ExpansionNet v2 -> S1: MobileNetV3-Large | MSCOCO 2014 | Hybrid Sequence + Dense-Mapped Logit-KD | 98.58 | 109.95 |
+| T2: BLIP Base -> S2: MobileViT-S | MSCOCO 2014 | Sequence KD | 99.32 | 102.07 |
+| T3: SigLIP ViT-B/16 -> S3: TinyViT-5M | MSCOCO 2014 | Direct Logit-KD | 107.48 | 109.40 |
+
+#### Experimental models
+
+This table follows the exact UI order requested for comparative testing.
+
+| Teacher -> Student | Dataset | KD method | Baseline | KD |
+|---|---|---|---:|---:|
+| V1 FP32 | MSCOCO 2014 | FP32 reference runtime | — | — |
+| T1: CLIP ViT-B/32 -> S1: MobileNetV3-Large | MSCOCO 2014 | Direct Logit-KD | 98.73 | 100.73 |
+| T1: ExpansionNet v2 -> S1: MobileNetV3-Large | Flickr30K | Sequence KD | 47.62 | 38.49 |
+| T1: ExpansionNet v2 -> S1: MobileNetV3-Large | Flickr30K | Dense-Mapped Logit-KD | 47.62 | 36.93 |
+| T1: ExpansionNet v2 -> S1: MobileNetV3-Large | Flickr30K | Hybrid Sequence + Dense-Mapped Logit-KD | 47.70 | 38.07 |
+| T2: BLIP Base -> S2: MobileViT-S | Flickr30K | Sequence KD | 50.10 | 42.33 |
+| T3: SigLIP ViT-B/16 -> S3: TinyViT-5M | Flickr30K | Direct Logit-KD | 57.07 | 61.71 |
+
+The lower Flickr30K KD values are retained as experimental findings; they must
+not be presented as improvements. Metrics from different datasets are not
+directly comparable. Model selection remains based on the locked Validation
+protocol, while Held-out Test results are not used to tune the method.
+
+### 8. Using the application
+
+1. Start the backend when sign-in or synchronization is required.
+2. Sign in, register, use Google Sign-In, or continue as Guest.
+3. Open **Capture**, choose **Gallery** or **Camera**, and select an image.
+4. Select the required model and generate a caption.
+5. Review the English caption and Vietnamese translation.
+6. Select **EN** or **VI** for speech, or **Share** to export the composed image.
+
+Authenticated users can store history and favorites. Guest sessions can run
+captioning and inspect models but do not persist account history or favorites.
+The floating `+` control exposes language and theme shortcuts; `×` closes it.
+
+### 9. Testing
+
+Backend and Android gates:
+
+```powershell
+cd "D:\KLCN\backend"
+docker compose ps
+Invoke-RestMethod http://127.0.0.1:8000/health
+
+cd "D:\KLCN\src"
+.\gradlew.bat :app:testDebugUnitTest
+.\gradlew.bat :app:assembleDebug
+.\gradlew.bat :app:connectedDebugAndroidTest
+```
+
+Manual checks should cover duplicate username/email rejection, password and
+Google sign-in, sign-out, Guest restrictions, account data isolation, Admin
+lock/unlock and permissions, every available model, Vietnamese/English on all
+active screens, light/dark themes, offline captioning, and synchronization after
+the API returns.
+
+Android emulator benchmarking is a functional smoke test only. Reportable
+latency, PSS memory, and thermal values require the locked physical-device
+protocol and the same model package, image set, warm-up count, and measured-run
+count used in the experiment record.
+
+### 10. DBeaver connection
+
+Create a PostgreSQL connection with:
+
+| Field | Value |
+|---|---|
+| Host | `127.0.0.1` |
+| Port | `15432` |
+| Database | `vision_caption` |
+| Username | `vision_app` |
+| Password | `POSTGRES_PASSWORD` from backend `.env` |
+
+The DBeaver password is not `ADMIN_PASSWORD`. Android must never connect to
+this database endpoint directly.
+
+### 11. Troubleshooting
+
+- **App reports that it cannot connect:** verify Docker health and
+  `http://127.0.0.1:8000/health`; use `10.0.2.2` on the emulator, not
+  `localhost`. For USB, run `adb reverse tcp:8000 tcp:8000`.
+- **Google reports no credentials:** use a Google Play system image, sign into
+  Google on the device, verify package/SHA-1 and Web Client ID, then reinstall
+  the APK after changing OAuth settings.
+- **Model or SHA-256 mismatch:** run `git lfs pull` and keep the ONNX file,
+  tensor contract, preprocessing metadata, vocabulary, and hash registry in
+  sync.
+- **Wrong Java version:** set Android Studio Gradle JDK to JDK 17 and check
+  `java -version` and `.\gradlew.bat --version`.
+- **Slow inference or low memory:** close unused emulators, allocate 4 GB RAM
+  to the emulator, avoid concurrent inference, or validate on a physical arm64
+  device.
+- **Database schema did not change:** create a migration for an existing
+  volume. Do not recreate a production database merely to apply a schema edit.
+
+### 12. Security and current limitations
+
+- Never commit `.env`, keystores, JWT secrets, passwords, or OAuth secrets.
+- Use HTTPS and a reverse proxy outside local development.
+- Do not expose PostgreSQL to the public Internet.
+- Create a dedicated release signing key and use Play App Signing before store
+  distribution; the current research release uses debug signing.
+- Production Google OAuth must include the release/Play signing SHA-1.
+- Caption generation currently produces English text; Vietnamese is an
+  on-device translation of that result.
+- Validation metrics are not a guarantee for arbitrary images.
+- Research model cards and experiment outputs must retain their dataset,
+  checkpoint, quantization, and evaluation context.
+
+Related documents:
 
 - [AUTH_PRODUCTION_SETUP.md](AUTH_PRODUCTION_SETUP.md)
 - [DATABASE_ARCHITECTURE.md](DATABASE_ARCHITECTURE.md)

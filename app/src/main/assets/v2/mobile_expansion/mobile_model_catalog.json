@@ -1,0 +1,404 @@
+{
+  "schema_version": "klcn_v2_mobile_expansion_catalog_v1",
+  "created_at_utc": "2026-11-02T08:14:06.674451+00:00",
+  "status": "complete",
+  "models": [
+    {
+      "model_id": "MSCOCO_CLIPS1",
+      "teacher": "CLIP ViT-B/32",
+      "student": "MobileNetV3-Large",
+      "dataset": "MS COCO 2014",
+      "method": "Direct Logit-KD",
+      "seed": 123,
+      "precision": {
+        "encoder": "FP32",
+        "decoder": "dynamic INT8"
+      },
+      "selected_size": {
+        "fp32_reference_bytes": 46301860,
+        "selected_bytes": 21493216,
+        "fp32_reference_mib": 44.15689468383789,
+        "selected_mib": 20.497528076171875,
+        "reduction_fraction": 0.5358023198204133
+      },
+      "metrics": {
+        "onnx_fp32": {
+          "BLEU_1": 0.7236445010162245,
+          "BLEU_4": 0.31479379117702283,
+          "METEOR": 0.2598073325128863,
+          "ROUGE_L": 0.5387676977008156,
+          "CIDEr_D": 1.004451013192079,
+          "ce_loss": 2.052158654077587
+        },
+        "mixed_int8": {
+          "BLEU_1": 0.7242894693609183,
+          "BLEU_4": 0.31690191965576553,
+          "METEOR": 0.26061782488641627,
+          "ROUGE_L": 0.5401994831756212,
+          "CIDEr_D": 1.0073059607445285,
+          "ce_loss": 2.052571870949465
+        },
+        "mixed_minus_fp32": {
+          "BLEU_1": 0.0006449683446938526,
+          "BLEU_4": 0.002108128478742699,
+          "METEOR": 0.0008104923735299807,
+          "ROUGE_L": 0.0014317854748056025,
+          "CIDEr_D": 0.002854947552449527,
+          "ce_loss": 0.0004132168718777862
+        },
+        "x100": {
+          "onnx_fp32": {
+            "BLEU_1": 72.36,
+            "BLEU_4": 31.48,
+            "METEOR": 25.98,
+            "ROUGE_L": 53.88,
+            "CIDEr_D": 100.45
+          },
+          "mixed_int8": {
+            "BLEU_1": 72.43,
+            "BLEU_4": 31.69,
+            "METEOR": 26.06,
+            "ROUGE_L": 54.02,
+            "CIDEr_D": 100.73
+          }
+        }
+      },
+      "artifacts": [
+        {
+          "name": "mscoco_clips1_encoder_fp32.onnx",
+          "bytes": 12914651,
+          "sha256": "994acdcb22849f2d7fc9d36a0acb63c3c49d3d584483fc94c53aabab3a5da636"
+        },
+        {
+          "name": "mscoco_clips1_decoder_dynamic_int8.onnx",
+          "bytes": 8578565,
+          "sha256": "b30500320817c00825308305bbd740f24ad64685dfc34304ac0d195f04d7ec22"
+        },
+        {
+          "name": "word_vocabulary_minfreq5.json",
+          "bytes": 147712,
+          "sha256": "1c6c7e6146d2700932c82be6f076d93153c757c10a1844076abaea9c11496f97"
+        }
+      ],
+      "deployment_contract_sha256": "588b76acc951556a4ac0f46fe3e28a5d391acade235d212c308925af8b630744"
+    },
+    {
+      "model_id": "F30K_T1S1_Dense",
+      "teacher": "ExpansionNet v2",
+      "student": "MobileNetV3-Large",
+      "dataset": "Flickr30K",
+      "method": "Dense-Mapped Logit-KD",
+      "seed": 123,
+      "precision": {
+        "encoder": "FP32",
+        "decoder": "dynamic INT8"
+      },
+      "selected_size": {
+        "fp32_reference_bytes": 40918245,
+        "selected_bytes": 20127751,
+        "fp32_reference_mib": 39.02267932891846,
+        "selected_mib": 19.195319175720215,
+        "reduction_fraction": 0.5080983800747074
+      },
+      "metrics": {
+        "onnx_fp32": {
+          "BLEU_1": 0.6365331710609293,
+          "BLEU_4": 0.18586752778007876,
+          "METEOR": 0.17400020974875846,
+          "ROUGE_L": 0.4314452313703881,
+          "CIDEr_D": 0.3718803715149065,
+          "ce_loss": 3.5366300088210227
+        },
+        "mixed_int8": {
+          "BLEU_1": 0.6347964925351955,
+          "BLEU_4": 0.18506973960967474,
+          "METEOR": 0.17454453969205644,
+          "ROUGE_L": 0.43159959567983913,
+          "CIDEr_D": 0.3693402154980623,
+          "ce_loss": 3.536048230794112
+        },
+        "mixed_minus_fp32": {
+          "BLEU_1": -0.0017366785257337813,
+          "BLEU_4": -0.000797788170404018,
+          "METEOR": 0.0005443299432979776,
+          "ROUGE_L": 0.0001543643094510383,
+          "CIDEr_D": -0.0025401560168442083,
+          "ce_loss": -0.0005817780269108397
+        },
+        "x100": {
+          "onnx_fp32": {
+            "BLEU_1": 63.65,
+            "BLEU_4": 18.59,
+            "METEOR": 17.4,
+            "ROUGE_L": 43.14,
+            "CIDEr_D": 37.19
+          },
+          "mixed_int8": {
+            "BLEU_1": 63.48,
+            "BLEU_4": 18.51,
+            "METEOR": 17.45,
+            "ROUGE_L": 43.16,
+            "CIDEr_D": 36.93
+          }
+        }
+      },
+      "artifacts": [
+        {
+          "name": "f30k_t1s1_dense_encoder_fp32.onnx",
+          "bytes": 12914639,
+          "sha256": "012244530a9489b8e8b87cbd0e030db1cd33c1da36e2ce0688e772810c905dfa"
+        },
+        {
+          "name": "f30k_t1s1_dense_decoder_dynamic_int8.onnx",
+          "bytes": 7213112,
+          "sha256": "76fa3d4af852f1fc4cd3c2a30428da7c50bab81c7bc3300d1e6b457de7954cf7"
+        },
+        {
+          "name": "f30k_vocabulary_minfreq5.json",
+          "bytes": 260782,
+          "sha256": "c94727d24d24130126ae7c88d9537714b88ff3dde12ac741f9cd4a0757287a83"
+        }
+      ],
+      "deployment_contract_sha256": "9ebcf40e2b20282c60f4fc485dc2376d3f35fbcdda60f7b72735f6dd06300a43"
+    },
+    {
+      "model_id": "F30K_T1S1_Hybrid",
+      "teacher": "ExpansionNet v2",
+      "student": "MobileNetV3-Large",
+      "dataset": "Flickr30K",
+      "method": "Hybrid Sequence and Dense-Mapped Logit Knowledge Distillation",
+      "seed": 2026,
+      "precision": {
+        "encoder": "FP32",
+        "decoder": "dynamic INT8"
+      },
+      "selected_size": {
+        "fp32_reference_bytes": 40918245,
+        "selected_bytes": 20127752,
+        "fp32_reference_mib": 39.02267932891846,
+        "selected_mib": 19.19532012939453,
+        "reduction_fraction": 0.5080983556357317
+      },
+      "metrics": {
+        "onnx_fp32": {
+          "BLEU_1": 0.6405902371550184,
+          "BLEU_4": 0.18702562294701408,
+          "METEOR": 0.17489441339773287,
+          "ROUGE_L": 0.4342344535353181,
+          "CIDEr_D": 0.3808386300632916,
+          "ce_loss": 3.4067009967239374
+        },
+        "mixed_int8": {
+          "BLEU_1": 0.6429160885390437,
+          "BLEU_4": 0.18772984736437986,
+          "METEOR": 0.1746738725133923,
+          "ROUGE_L": 0.43473275413888546,
+          "CIDEr_D": 0.3806953980953745,
+          "ce_loss": 3.4087020145129308
+        },
+        "mixed_minus_fp32": {
+          "BLEU_1": 0.0023258513840253014,
+          "BLEU_4": 0.0007042244173657841,
+          "METEOR": -0.0002205408843405643,
+          "ROUGE_L": 0.0004983006035673698,
+          "CIDEr_D": -0.00014323196791710124,
+          "ce_loss": 0.002001017788993309
+        },
+        "x100": {
+          "onnx_fp32": {
+            "BLEU_1": 64.06,
+            "BLEU_4": 18.7,
+            "METEOR": 17.49,
+            "ROUGE_L": 43.42,
+            "CIDEr_D": 38.08
+          },
+          "mixed_int8": {
+            "BLEU_1": 64.29,
+            "BLEU_4": 18.77,
+            "METEOR": 17.47,
+            "ROUGE_L": 43.47,
+            "CIDEr_D": 38.07
+          }
+        }
+      },
+      "artifacts": [
+        {
+          "name": "f30k_t1s1_hybrid_encoder_fp32.onnx",
+          "bytes": 12914639,
+          "sha256": "69919cec9d00ed877ab708f8f6f0cdd35085805153b92b3d031b3b9272b12116"
+        },
+        {
+          "name": "f30k_t1s1_hybrid_decoder_dynamic_int8.onnx",
+          "bytes": 7213113,
+          "sha256": "a76cdd92068fca3ca96cb3d44e42cf40d7f7edb8163ef98a8daafccfcc48bbc1"
+        },
+        {
+          "name": "f30k_vocabulary_minfreq5.json",
+          "bytes": 260782,
+          "sha256": "c94727d24d24130126ae7c88d9537714b88ff3dde12ac741f9cd4a0757287a83"
+        }
+      ],
+      "deployment_contract_sha256": "baff7fd67e5637cbd36b6d1c5242f247e87a789e66c5645681cc4586c5e6a518"
+    },
+    {
+      "model_id": "F30K_T1S1_Seq",
+      "teacher": "ExpansionNet v2",
+      "student": "MobileNetV3-Large",
+      "dataset": "Flickr30K",
+      "method": "Sequence KD",
+      "seed": 123,
+      "precision": {
+        "encoder": "FP32",
+        "decoder": "dynamic INT8"
+      },
+      "selected_size": {
+        "fp32_reference_bytes": 40918245,
+        "selected_bytes": 20127751,
+        "fp32_reference_mib": 39.02267932891846,
+        "selected_mib": 19.195319175720215,
+        "reduction_fraction": 0.5080983800747074
+      },
+      "metrics": {
+        "onnx_fp32": {
+          "BLEU_1": 0.6293876506623266,
+          "BLEU_4": 0.17919342431031646,
+          "METEOR": 0.17574726063011561,
+          "ROUGE_L": 0.43144061938615785,
+          "CIDEr_D": 0.3867191276728564,
+          "ce_loss": 2.9548425188039826
+        },
+        "mixed_int8": {
+          "BLEU_1": 0.6288455880942352,
+          "BLEU_4": 0.17986352817636456,
+          "METEOR": 0.1759030346350326,
+          "ROUGE_L": 0.43097700486191826,
+          "CIDEr_D": 0.38485228601906674,
+          "ce_loss": 2.9541227653275453
+        },
+        "mixed_minus_fp32": {
+          "BLEU_1": -0.0005420625680914171,
+          "BLEU_4": 0.0006701038660480996,
+          "METEOR": 0.0001557740049169809,
+          "ROUGE_L": -0.00046361452423959726,
+          "CIDEr_D": -0.0018668416537896415,
+          "ce_loss": -0.0007197534764373792
+        },
+        "x100": {
+          "onnx_fp32": {
+            "BLEU_1": 62.94,
+            "BLEU_4": 17.92,
+            "METEOR": 17.57,
+            "ROUGE_L": 43.14,
+            "CIDEr_D": 38.67
+          },
+          "mixed_int8": {
+            "BLEU_1": 62.88,
+            "BLEU_4": 17.99,
+            "METEOR": 17.59,
+            "ROUGE_L": 43.1,
+            "CIDEr_D": 38.49
+          }
+        }
+      },
+      "artifacts": [
+        {
+          "name": "f30k_t1s1_seq_encoder_fp32.onnx",
+          "bytes": 12914639,
+          "sha256": "fb229c99215e8accc81f2a4b93aa389688778d50e220feb20a5c396febac5604"
+        },
+        {
+          "name": "f30k_t1s1_seq_decoder_dynamic_int8.onnx",
+          "bytes": 7213112,
+          "sha256": "c610df5d1966dee3a933747520329a3d0c68353f178217f63a11f5600c03acf3"
+        },
+        {
+          "name": "f30k_vocabulary_minfreq5.json",
+          "bytes": 260782,
+          "sha256": "c94727d24d24130126ae7c88d9537714b88ff3dde12ac741f9cd4a0757287a83"
+        }
+      ],
+      "deployment_contract_sha256": "43273af52801c548608e6c1f03e0871eb7f4a6f3c0f6a964e1737ae8bde4a3b7"
+    },
+    {
+      "model_id": "F30K_T2S2_Seq",
+      "teacher": "BLIP Base",
+      "student": "MobileViT-S",
+      "dataset": "Flickr30K",
+      "method": "Sequence KD",
+      "seed": 42,
+      "precision": {
+        "encoder": "FP32",
+        "decoder": "dynamic INT8"
+      },
+      "selected_size": {
+        "fp32_reference_bytes": 48592164,
+        "selected_bytes": 27801670,
+        "fp32_reference_mib": 46.34109878540039,
+        "selected_mib": 26.51373863220215,
+        "reduction_fraction": 0.42785692771369477
+      },
+      "metrics": {
+        "onnx_fp32": {
+          "BLEU_1": 0.6195090796595861,
+          "BLEU_4": 0.19711276955405976,
+          "METEOR": 0.1803885858679202,
+          "ROUGE_L": 0.4230882358089665,
+          "CIDEr_D": 0.42162675194046156,
+          "ce_loss": 2.899432209833949
+        },
+        "mixed_int8": {
+          "BLEU_1": 0.6183863270934354,
+          "BLEU_4": 0.19730152596275496,
+          "METEOR": 0.18054086790438284,
+          "ROUGE_L": 0.4220907464810532,
+          "CIDEr_D": 0.4233012400108898,
+          "ce_loss": 2.8983912662045617
+        },
+        "mixed_minus_fp32": {
+          "BLEU_1": -0.0011227525661506865,
+          "BLEU_4": 0.00018875640869520094,
+          "METEOR": 0.00015228203646264205,
+          "ROUGE_L": -0.0009974893279132702,
+          "CIDEr_D": 0.0016744880704282483,
+          "ce_loss": -0.0010409436293872254
+        },
+        "x100": {
+          "onnx_fp32": {
+            "BLEU_1": 61.95,
+            "BLEU_4": 19.71,
+            "METEOR": 18.04,
+            "ROUGE_L": 42.31,
+            "CIDEr_D": 42.16
+          },
+          "mixed_int8": {
+            "BLEU_1": 61.84,
+            "BLEU_4": 19.73,
+            "METEOR": 18.05,
+            "ROUGE_L": 42.21,
+            "CIDEr_D": 42.33
+          }
+        }
+      },
+      "artifacts": [
+        {
+          "name": "f30k_t2s2_seq_encoder_fp32.onnx",
+          "bytes": 20588558,
+          "sha256": "5827440b4cedbc230dfba34c95d6f9b1aef45eda959cf4f448136fb2b4b6c0c7"
+        },
+        {
+          "name": "f30k_t2s2_seq_decoder_dynamic_int8.onnx",
+          "bytes": 7213112,
+          "sha256": "38d28e679e834e115e0d240cb74a1615eee4598be0ca87b23ee616869e5fa18a"
+        },
+        {
+          "name": "f30k_vocabulary_minfreq5.json",
+          "bytes": 260782,
+          "sha256": "c94727d24d24130126ae7c88d9537714b88ff3dde12ac741f9cd4a0757287a83"
+        }
+      ],
+      "deployment_contract_sha256": "4a06ddffdd23806f0285b0cb39dd6c26d05f9413e46c1b09dc51277f1f6df578"
+    }
+  ],
+  "test_set_used": false,
+  "next_phase_authorized": "ANDROID_APP_ASSET_INTEGRATION"
+}

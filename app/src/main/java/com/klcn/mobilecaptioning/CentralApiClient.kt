@@ -1,8 +1,10 @@
 package com.klcn.mobilecaptioning
 
 import android.content.Context
+import android.os.Build
 import android.util.Base64
 import java.io.File
+import java.io.IOException
 import java.net.HttpURLConnection
 import java.net.URL
 import kotlinx.coroutines.Dispatchers
@@ -13,13 +15,40 @@ internal object CentralApiSettings {
     private const val PreferencesName = "central_api_settings"
     private const val BaseUrlKey = "base_url"
 
-    fun load(context: Context): String =
+    private fun stored(context: Context): String? =
         context.getSharedPreferences(PreferencesName, Context.MODE_PRIVATE)
             .getString(BaseUrlKey, null)
             ?.trim()
             ?.trimEnd('/')
             ?.takeIf(String::isNotBlank)
-            ?: context.getString(R.string.central_api_base_url).trimEnd('/')
+
+    fun load(context: Context): String = stored(context)
+        ?: context.getString(R.string.central_api_base_url).trimEnd('/')
+
+    /**
+     * A saved LAN address remains the first choice. Development fallbacks make
+     * login resilient when switching between the Android emulator and a USB
+     * device configured with `adb reverse tcp:8000 tcp:8000`.
+     */
+    fun candidates(context: Context): List<String> = buildList {
+        stored(context)?.let(::add)
+        val emulatorUrl = context.getString(R.string.central_api_base_url).trimEnd('/')
+        val usbReverseUrl = "http://localhost:8000"
+        if (isProbablyEmulator()) {
+            add(emulatorUrl)
+            add(usbReverseUrl)
+        } else {
+            add(usbReverseUrl)
+            add(emulatorUrl)
+        }
+    }.distinct()
+
+    private fun isProbablyEmulator(): Boolean =
+        Build.FINGERPRINT.startsWith("generic") ||
+            Build.FINGERPRINT.contains("emulator", ignoreCase = true) ||
+            Build.MODEL.contains("Emulator", ignoreCase = true) ||
+            Build.MODEL.contains("Android SDK built for", ignoreCase = true) ||
+            Build.PRODUCT.contains("sdk", ignoreCase = true)
 
     fun save(context: Context, value: String): String {
         val normalized = value.trim().trimEnd('/').let { candidate ->
@@ -56,6 +85,14 @@ internal class CentralApiException(
     val statusCode: Int,
     override val message: String,
 ) : Exception(message)
+
+internal class CentralApiConnectionException(
+    val attemptedBaseUrls: List<String>,
+    cause: Throwable?,
+) : IOException(
+    "Unable to reach Central API via ${attemptedBaseUrls.joinToString()}",
+    cause,
+)
 
 internal class CentralApiClient(context: Context) {
     private val appContext = context.applicationContext
@@ -290,12 +327,34 @@ internal class CentralApiClient(context: Context) {
         body: JSONObject?,
         token: String?,
     ): JSONObject = withContext(Dispatchers.IO) {
-        val baseUrl = CentralApiSettings.load(appContext)
+        val candidates = CentralApiSettings.candidates(appContext)
+        var lastConnectionError: IOException? = null
+        for (baseUrl in candidates) {
+            try {
+                return@withContext requestOnce(baseUrl, method, path, body, token)
+            } catch (error: CentralApiException) {
+                // The API answered. Authentication/validation errors must not
+                // be hidden by retrying a different server.
+                throw error
+            } catch (error: IOException) {
+                lastConnectionError = error
+            }
+        }
+        throw CentralApiConnectionException(candidates, lastConnectionError)
+    }
+
+    private fun requestOnce(
+        baseUrl: String,
+        method: String,
+        path: String,
+        body: JSONObject?,
+        token: String?,
+    ): JSONObject {
         val connection = URL("$baseUrl$path").openConnection() as HttpURLConnection
-        try {
+        return try {
             connection.requestMethod = method
-            connection.connectTimeout = 8_000
-            connection.readTimeout = 15_000
+            connection.connectTimeout = 4_000
+            connection.readTimeout = 10_000
             connection.setRequestProperty("Accept", "application/json")
             connection.setRequestProperty("Content-Type", "application/json; charset=utf-8")
             if (token != null) connection.setRequestProperty("Authorization", "Bearer $token")

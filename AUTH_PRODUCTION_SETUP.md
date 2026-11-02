@@ -75,7 +75,37 @@ Google đối chiếu package/SHA; không đặt Android Client ID vào `strings
    vào **Audience → Test users** và bảo đảm lời nhắc Sign in with Google không
    bị tắt trong cài đặt tài khoản Google.
 
-## 3. Yêu cầu production
+## 3. Khởi động môi trường đăng nhập khi kiểm thử
+
+Backend tài khoản chạy trong Docker, vì vậy mở Android Studio hoặc máy ảo
+không tự khởi động API. Trước mỗi phiên kiểm thử, chạy:
+
+```powershell
+cd D:\KLCN\src
+.\scripts\start_android_test_environment.ps1 -DeviceSerial emulator-5554
+```
+
+Script thực hiện tự động các bước sau:
+
+- khởi động Docker Desktop nếu cần;
+- khởi động PostgreSQL và Central API;
+- chờ `http://127.0.0.1:8000/health` trả về trạng thái `ok`;
+- kiểm tra thiết bị ADB;
+- cấu hình `adb reverse tcp:8000 tcp:8000` cho thiết bị USB.
+
+Địa chỉ dùng theo môi trường:
+
+- Android Emulator: `http://10.0.2.2:8000`;
+- thiết bị thật kết nối USB và đã chạy script: `http://localhost:8000`;
+- thiết bị thật kết nối cùng Wi-Fi nhưng không dùng USB: đặt địa chỉ trong
+  **Cài đặt → Kết nối máy chủ** thành `http://<IPv4-của-máy-tính>:8000` và cho
+  phép cổng TCP 8000 qua Windows Firewall.
+
+Nếu ứng dụng hiển thị **Thông tin đăng nhập không chính xác**, kết nối API đã
+hoạt động và cần kiểm tra lại tài khoản/mật khẩu. Nếu hiển thị **Không thể kết
+nối máy chủ**, chạy lại script trên và kiểm tra Docker Desktop.
+
+## 4. Yêu cầu production
 
 1. Dùng project OAuth riêng cho production.
 2. Cấu hình tên, logo, email hỗ trợ, trang chủ, chính sách riêng tư và điều
@@ -89,7 +119,7 @@ Google đối chiếu package/SHA; không đặt Android Client ID vào `strings
 7. Ghi audit log bất biến cho đăng nhập, tạo mô tả, thay đổi quyền và thao tác
    quản trị; tránh ghi token, mật khẩu hoặc dữ liệu bí mật.
 
-## 4. Checklist nghiệm thu
+## 5. Checklist nghiệm thu
 
 - Username và email không trùng, kiểm tra không phân biệt hoa thường.
 - Mọi trường đăng ký đều được validate; mật khẩu tối thiểu 8 ký tự có chữ hoa,
@@ -101,7 +131,7 @@ Google đối chiếu package/SHA; không đặt Android Client ID vào `strings
 - Super Admin xem được tổng quan, hoạt động theo user và không thể bị xóa.
 - API backend vẫn từ chối thao tác trái quyền dù UI bị can thiệp.
 
-## 5. Tài liệu chính thức
+## 6. Tài liệu chính thức
 
 - Android Credential Manager — Sign in with Google:
   https://developer.android.com/identity/sign-in/credential-manager-siwg-implementation

@@ -1,0 +1,111 @@
+{
+  "schema_version": "klcn_v2_mobile_android_deployment_contract_v1",
+  "created_at_utc": "2026-11-02T06:59:28.392028+00:00",
+  "status": "locked",
+  "experiment_id": "KLCN_V2_MOB_F30K_T1S1_Hybrid_Android_Lock",
+  "model_id": "F30K_T1S1_Hybrid",
+  "teacher": "ExpansionNet v2",
+  "student": "MobileNetV3-Large",
+  "dataset": "Flickr30K",
+  "method": "Hybrid Sequence and Dense-Mapped Logit Knowledge Distillation",
+  "seed": 2026,
+  "model_group": "experimental",
+  "precision": {
+    "encoder": "FP32",
+    "decoder": "dynamic INT8"
+  },
+  "runtime_contract": {
+    "encoder_input": "images",
+    "encoder_output": "memory",
+    "decoder_inputs": [
+      "token_ids",
+      "memory",
+      "attention_mask"
+    ],
+    "decoder_output": "logits",
+    "decoder_batch": 1,
+    "decoder_steps": 31,
+    "mask_dtype": "tensor(bool)",
+    "vocabulary_size": 7456
+  },
+  "decoding": {
+    "beam_size": 3,
+    "length_penalty": 0.7,
+    "max_steps": 30
+  },
+  "metrics": {
+    "onnx_fp32": {
+      "BLEU_1": 0.6405902371550184,
+      "BLEU_4": 0.18702562294701408,
+      "METEOR": 0.17489441339773287,
+      "ROUGE_L": 0.4342344535353181,
+      "CIDEr_D": 0.3808386300632916,
+      "ce_loss": 3.4067009967239374
+    },
+    "mixed_int8": {
+      "BLEU_1": 0.6429160885390437,
+      "BLEU_4": 0.18772984736437986,
+      "METEOR": 0.1746738725133923,
+      "ROUGE_L": 0.43473275413888546,
+      "CIDEr_D": 0.3806953980953745,
+      "ce_loss": 3.4087020145129308
+    },
+    "mixed_minus_fp32": {
+      "BLEU_1": 0.0023258513840253014,
+      "BLEU_4": 0.0007042244173657841,
+      "METEOR": -0.0002205408843405643,
+      "ROUGE_L": 0.0004983006035673698,
+      "CIDEr_D": -0.00014323196791710124,
+      "ce_loss": 0.002001017788993309
+    },
+    "x100": {
+      "onnx_fp32": {
+        "BLEU_1": 64.06,
+        "BLEU_4": 18.7,
+        "METEOR": 17.49,
+        "ROUGE_L": 43.42,
+        "CIDEr_D": 38.08
+      },
+      "mixed_int8": {
+        "BLEU_1": 64.29,
+        "BLEU_4": 18.77,
+        "METEOR": 17.47,
+        "ROUGE_L": 43.47,
+        "CIDEr_D": 38.07
+      }
+    }
+  },
+  "selected_size": {
+    "fp32_reference_bytes": 40918245,
+    "selected_bytes": 20127752,
+    "fp32_reference_mib": 39.02267932891846,
+    "selected_mib": 19.19532012939453,
+    "reduction_fraction": 0.5080983556357317
+  },
+  "artifacts": [
+    {
+      "relative_path": "android_package/f30k_t1s1_hybrid_encoder_fp32.onnx",
+      "bytes": 12914639,
+      "sha256": "69919cec9d00ed877ab708f8f6f0cdd35085805153b92b3d031b3b9272b12116"
+    },
+    {
+      "relative_path": "android_package/f30k_t1s1_hybrid_decoder_dynamic_int8.onnx",
+      "bytes": 7213113,
+      "sha256": "a76cdd92068fca3ca96cb3d44e42cf40d7f7edb8163ef98a8daafccfcc48bbc1"
+    },
+    {
+      "relative_path": "android_package/f30k_vocabulary_minfreq5.json",
+      "bytes": 260782,
+      "sha256": "c94727d24d24130126ae7c88d9537714b88ff3dde12ac741f9cd4a0757287a83"
+    }
+  ],
+  "source": {
+    "validation_sha256": "966295e184da2de2a983f3dbe51c463cd1fbe22d2c1ae9b9253b7126e06d42ad",
+    "preflight_sha256": "c349ec48d783f78a730802ab4498f20f8176f44464160dc058746f188cb54234",
+    "noninferiority_sha256": null
+  },
+  "validation_gate_passed": true,
+  "test_set_used": false,
+  "android_assets_authorized": true,
+  "next_phase_authorized": "KLCN_V2_MOB_F30K_T1S1_Hybrid_Android_Integration"
+}

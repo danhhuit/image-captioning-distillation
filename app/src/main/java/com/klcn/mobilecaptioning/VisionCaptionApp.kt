@@ -1810,7 +1810,10 @@ private fun MetricSectionTitle(
             modifier = Modifier.padding(top = 7.dp),
         ) {
             Text(
-                text = title,
+                text = metricSectionDisplayTitle(
+                    title = title,
+                    vietnamese = labels.capture == "Chụp",
+                ),
                 style = MaterialTheme.typography.labelMedium,
                 fontWeight = FontWeight.Bold,
                 color = VisionCyan,
@@ -1844,6 +1847,23 @@ private fun MetricSectionTitle(
                 modifier = Modifier.padding(top = 5.dp, bottom = 3.dp),
             )
         }
+    }
+}
+
+private fun metricSectionDisplayTitle(
+    title: String,
+    vietnamese: Boolean,
+): String {
+    if (!vietnamese) return title
+    return when (title) {
+        "MODEL & RUNTIME" -> "MÔ HÌNH VÀ BỘ THỰC THI"
+        "INPUT & PREPROCESSING" -> "ĐẦU VÀO VÀ TIỀN XỬ LÝ"
+        "DECODER & BEAM SEARCH" -> "BỘ GIẢI MÃ VÀ BEAM SEARCH"
+        "CAPTION OUTPUT" -> "ĐẦU RA CHÚ THÍCH"
+        "CAPTION" -> "CHÚ THÍCH"
+        "MODEL & TENSORS" -> "MÔ HÌNH VÀ TENSOR"
+        "LATENCY" -> "ĐỘ TRỄ"
+        else -> title
     }
 }
 
@@ -1889,19 +1909,59 @@ private fun TechnicalRow(
     label: String,
     value: String,
 ) {
-    Row(modifier = Modifier.fillMaxWidth()) {
-        Text(
-            text = label,
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.weight(1f),
-        )
-        Text(
-            text = value,
-            style = MaterialTheme.typography.bodySmall,
-            fontWeight = FontWeight.SemiBold,
-            fontFamily = FontFamily.Monospace,
-        )
+    val displayValue = value
+        .replace("/", "/\u200B")
+        .replace("_", "_\u200B")
+    val useStackedLayout = value.length > 34 ||
+        value.contains('/') ||
+        label.endsWith("ONNX")
+
+    if (useStackedLayout) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(vertical = 2.dp),
+        ) {
+            Text(
+                text = label,
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Text(
+                text = displayValue,
+                style = MaterialTheme.typography.bodySmall,
+                fontWeight = FontWeight.SemiBold,
+                fontFamily = FontFamily.Monospace,
+                softWrap = true,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 2.dp),
+            )
+        }
+    } else {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.Top,
+        ) {
+            Text(
+                text = label,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                softWrap = true,
+                modifier = Modifier
+                    .weight(0.9f)
+                    .padding(end = 12.dp),
+            )
+            Text(
+                text = displayValue,
+                style = MaterialTheme.typography.bodySmall,
+                fontWeight = FontWeight.SemiBold,
+                fontFamily = FontFamily.Monospace,
+                textAlign = TextAlign.End,
+                softWrap = true,
+                modifier = Modifier.weight(1.1f),
+            )
+        }
     }
 }
 
