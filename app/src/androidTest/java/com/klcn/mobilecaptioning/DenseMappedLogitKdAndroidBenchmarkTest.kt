@@ -154,7 +154,7 @@ class DenseMappedLogitKdAndroidBenchmarkTest {
         val benchmarkDirectory = File(context.filesDir, "benchmarks").apply { mkdirs() }
         val resultFile = File(
             benchmarkDirectory,
-            "KLCN_V2_XLKD05_Dense_Mapped_LogitKD_ANDROID_PHYSICAL_BENCHMARK.json",
+            "XLKD05_Dense_Mapped_LogitKD_ANDROID_PHYSICAL_BENCHMARK.json",
         )
         resultFile.writeText(payload.toString(2), Charsets.UTF_8)
         File(benchmarkDirectory, "latest.json").writeText(payload.toString(2), Charsets.UTF_8)

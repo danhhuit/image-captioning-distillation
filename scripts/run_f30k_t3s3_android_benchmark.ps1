@@ -6,8 +6,8 @@ param(
     [ValidateRange(10, 100)]
     [int]$MeasuredRuns = 30,
     [string]$BenchmarkImagePath = "",
-    [string]$DeploymentPackage = "D:\KLCN\output_v2\f30k\KLCN_V2_F30K_T3S3_Deployment_Lock\mobile_package",
-    [string]$ResultRoot = "D:\KLCN\output_codex\04_thuc_nghiem\KLCN_V2_F30K\android_benchmark_results"
+    [string]$DeploymentPackage = "",
+    [string]$ResultRoot = "D:\KLCN\output_codex\04_thuc_nghiem\F30K\android_benchmark_results"
 )
 
 $ErrorActionPreference = "Stop"
@@ -15,6 +15,20 @@ Set-StrictMode -Version Latest
 
 $repositoryRoot = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
 $testAssetDirectory = Join-Path $repositoryRoot "app\src\androidTest\assets\f30k_t3s3_benchmark"
+
+if ([string]::IsNullOrWhiteSpace($DeploymentPackage)) {
+    $packageCandidates = @(
+        Get-ChildItem -LiteralPath "D:\KLCN\output_v2\f30k" -Directory |
+            Where-Object { $_.Name -like "*F30K_T3S3_Deployment_Lock" } |
+            ForEach-Object { Join-Path $_.FullName "mobile_package" } |
+            Where-Object { Test-Path -LiteralPath $_ -PathType Container }
+    )
+    if ($packageCandidates.Count -ne 1) {
+        throw "Can dung mot deployment package T3-S3. Tim thay: $($packageCandidates -join ', ')"
+    }
+    $DeploymentPackage = $packageCandidates[0]
+}
+
 $expectedPackageRoot = (Resolve-Path -LiteralPath $DeploymentPackage).Path
 $expectedRepositoryRoot = (Resolve-Path -LiteralPath $repositoryRoot).Path
 
@@ -25,33 +39,52 @@ if (-not $expectedPackageRoot.StartsWith("D:\KLCN\output_v2\f30k", [System.Strin
     throw "Deployment package ngoai pham vi du kien: $expectedPackageRoot"
 }
 
+$configCandidates = @(
+    Get-ChildItem -LiteralPath $expectedPackageRoot -File |
+        Where-Object { $_.Name -like "*F30K_T3S3_MOBILE_CONFIG.json" }
+)
+if ($configCandidates.Count -ne 1) {
+    throw "Can dung mot mobile config T3-S3. Tim thay: $($configCandidates.Name -join ', ')"
+}
+
 $artifacts = @(
     @{
-        Name = "f30k_t3s3_seed42_encoder_fp32.onnx"
+        SourceName = "f30k_t3s3_seed42_encoder_fp32.onnx"
+        TargetName = "f30k_t3s3_seed42_encoder_fp32.onnx"
         Sha256 = "1ff7e46d053142bd1cccf0e02e9ffe0c6e38495274e4dc60aa5f059da03ae984"
+        NormalizePrefix = $false
     },
     @{
-        Name = "f30k_t3s3_seed42_decoder_dynamic_int8.onnx"
+        SourceName = "f30k_t3s3_seed42_decoder_dynamic_int8.onnx"
+        TargetName = "f30k_t3s3_seed42_decoder_dynamic_int8.onnx"
         Sha256 = "ece2a7b788529e515467f28188b6e6eca0c680fb11c04104b683c21973ea2973"
+        NormalizePrefix = $false
     },
     @{
-        Name = "f30k_vocabulary_minfreq5.json"
+        SourceName = "f30k_vocabulary_minfreq5.json"
+        TargetName = "f30k_vocabulary_minfreq5.json"
         Sha256 = "c94727d24d24130126ae7c88d9537714b88ff3dde12ac741f9cd4a0757287a83"
+        NormalizePrefix = $false
     },
     @{
-        Name = "KLCN_V2_F30K_T3S3_MOBILE_CONFIG.json"
+        SourceName = $configCandidates[0].Name
+        TargetName = "F30K_T3S3_MOBILE_CONFIG.json"
         Sha256 = "44e3b5b4adc8eb7c4a65cf9e1a82bffb3159d67746827c17c05e224c2429857d"
+        NormalizePrefix = $true
     }
 )
 
 foreach ($artifact in $artifacts) {
-    $path = Join-Path $expectedPackageRoot $artifact.Name
+    if ([string]::IsNullOrWhiteSpace($artifact.SourceName)) {
+        throw "Khong tim thay mobile config trong deployment package."
+    }
+    $path = Join-Path $expectedPackageRoot $artifact.SourceName
     if (-not (Test-Path -LiteralPath $path -PathType Leaf)) {
         throw "Thieu artifact: $path"
     }
     $actualHash = (Get-FileHash -LiteralPath $path -Algorithm SHA256).Hash.ToLowerInvariant()
     if ($actualHash -ne $artifact.Sha256) {
-        throw "SHA-256 mismatch: $($artifact.Name)"
+        throw "SHA-256 mismatch: $($artifact.SourceName)"
     }
 }
 
@@ -106,7 +139,17 @@ New-Item -ItemType Directory -Path $resultDirectory -Force | Out-Null
 try {
     New-Item -ItemType Directory -Path $testAssetDirectory -Force | Out-Null
     foreach ($artifact in $artifacts) {
-        Copy-Item -LiteralPath (Join-Path $expectedPackageRoot $artifact.Name) -Destination $testAssetDirectory -Force
+        $destination = Join-Path $testAssetDirectory $artifact.TargetName
+        Copy-Item -LiteralPath (Join-Path $expectedPackageRoot $artifact.SourceName) -Destination $destination -Force
+        if ($artifact.NormalizePrefix) {
+            $content = [System.IO.File]::ReadAllText($destination)
+            $content = [regex]::Replace($content, '(?i)\bKLCN[-_ ]V2[-_ ]?', '')
+            [System.IO.File]::WriteAllText(
+                $destination,
+                $content,
+                [System.Text.UTF8Encoding]::new($false)
+            )
+        }
     }
     if ($BenchmarkImagePath) {
         $resolvedImage = (Resolve-Path -LiteralPath $BenchmarkImagePath).Path
@@ -151,9 +194,9 @@ try {
     }
 
     $resultFileName = if ($isEmulator) {
-        "KLCN_V2_F30K_T3S3_ANDROID_EMULATOR_SMOKE.json"
+        "F30K_T3S3_ANDROID_EMULATOR_SMOKE.json"
     } else {
-        "KLCN_V2_F30K_T3S3_ANDROID_PHYSICAL_BENCHMARK.json"
+        "F30K_T3S3_ANDROID_PHYSICAL_BENCHMARK.json"
     }
     $remoteResult = "/sdcard/Android/data/com.klcn.mobilecaptioning/files/benchmarks/$resultFileName"
     $localResult = Join-Path $resultDirectory $resultFileName
@@ -172,7 +215,7 @@ try {
     }
 
     $manifest = [ordered]@{
-        schema_version = "klcn_v2_f30k_t3s3_android_benchmark_manifest_v1"
+        schema_version = "f30k_t3s3_android_benchmark_manifest_v1"
         created_at_local = (Get-Date).ToString("o")
         device_serial = $DeviceSerial
         measurement_role = if ($isEmulator) { "emulator_smoke_only" } else { "physical_device_benchmark" }

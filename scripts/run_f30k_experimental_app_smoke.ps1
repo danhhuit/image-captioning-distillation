@@ -1,6 +1,6 @@
 param(
     [string]$DeviceSerial = "emulator-5554",
-    [string]$ResultRoot = "D:\KLCN\output_codex\04_thuc_nghiem\KLCN_V2_F30K\android_app_integration_results"
+    [string]$ResultRoot = "D:\KLCN\output_codex\04_thuc_nghiem\F30K\android_app_integration_results"
 )
 
 $ErrorActionPreference = "Stop"

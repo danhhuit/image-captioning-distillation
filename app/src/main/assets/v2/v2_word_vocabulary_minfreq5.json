@@ -5,7 +5,7 @@
     "dataset": "MS COCO 2014",
     "split": "Karpathy train + restval only",
     "caption_count": 566747,
-    "corpus_path": "/kaggle/working/klcn_v2/phase1_mscoco/data/karpathy_train_restval_captions_raw.jsonl",
+    "corpus_path": "/kaggle/working//phase1_mscoco/data/karpathy_train_restval_captions_raw.jsonl",
     "corpus_sha256": "de68fb82e4dc942cf2bb4159b2b900b0eee79f2923ba9b9d24f680895045fd3c"
   },
   "tokenizer": {

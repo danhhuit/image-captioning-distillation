@@ -13,7 +13,7 @@ import org.junit.runner.RunWith
 
 /**
  * Device smoke test for the five packages authorized by
- * KLCN_V2_MOB_Expansion_Final_Audit.
+ * MOB_Expansion_Final_Audit.
  *
  * Sessions are released after every model because the expansion APK contains
  * several independent ONNX packages and low-memory Android devices must never

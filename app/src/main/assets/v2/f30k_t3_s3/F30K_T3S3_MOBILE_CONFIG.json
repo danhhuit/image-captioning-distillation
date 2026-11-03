@@ -1,5 +1,5 @@
 {
-  "schema_version": "klcn_v2_f30k_t3s3_mobile_config_v1",
+  "schema_version": "f30k_t3s3_mobile_config_v1",
   "model": {
     "pair": "T3 SigLIP ViT-B/16 adapted -> S3 TinyViT-5M",
     "method": "Direct Logit-KD",

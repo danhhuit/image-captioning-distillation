@@ -136,7 +136,7 @@ internal enum class CaptionModelMode(
         encoderAsset = "v2/t1_s1_sequence/encoder_int8.onnx",
         decoderAsset = "v2/t1_s1_sequence/decoder_int8.onnx",
         expectedEncoderSha256 =
-            "16390358c41161a54e7af0598ff87336d22bcdb3ad837f7d6917d75edcd217eb",
+            "0604b5b00b7c7efa388d87766f456b9eda6a2fe96090bf283341db6b279471dc",
         expectedDecoderSha256 =
             "0184a94a7ae7dfc5560dfba9aebae9222337e34de4d242f2b3b5c912adcec261",
         normalizationMean = floatArrayOf(0.485f, 0.456f, 0.406f),

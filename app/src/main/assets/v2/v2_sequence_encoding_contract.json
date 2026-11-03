@@ -2,12 +2,12 @@
   "schema_version": "1.0.0",
   "created_at_utc": "2026-09-07T09:56:43.193977+00:00",
   "vocabulary": {
-    "path": "/kaggle/working/klcn_v2/phase1_mscoco/vocabulary/word_vocabulary_minfreq5.json",
+    "path": "/kaggle/working//phase1_mscoco/vocabulary/word_vocabulary_minfreq5.json",
     "sha256": "1c6c7e6146d2700932c82be6f076d93153c757c10a1844076abaea9c11496f97",
     "size": 10080
   },
   "tokenizer_contract": {
-    "path": "/kaggle/working/klcn_v2/phase1_mscoco/vocabulary/tokenizer_contract.json",
+    "path": "/kaggle/working//phase1_mscoco/vocabulary/tokenizer_contract.json",
     "sha256": "81f44b410095a6b5727b3bdca993397ecac205f6b6a8118bdd1d5d68faa3f241"
   },
   "special_token_ids": {

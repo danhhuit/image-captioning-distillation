@@ -102,12 +102,12 @@ class Flickr30kT3S3AndroidBenchmarkTest {
             val apkBytes = File(targetContext.applicationInfo.sourceDir).length()
 
             val payload = JSONObject()
-                .put("schema_version", "klcn_v2_f30k_t3s3_android_benchmark_v1")
+                .put("schema_version", "f30k_t3s3_android_benchmark_v1")
                 .put(
                     "status",
                     if (emulator) "complete_emulator_smoke" else "complete_physical_device",
                 )
-                .put("experiment_id", "KLCN_V2_F30K_T3S3_Android_Benchmark")
+                .put("experiment_id", "F30K_T3S3_Android_Benchmark")
                 .put(
                     "measurement_role",
                     if (emulator) {
@@ -219,9 +219,9 @@ class Flickr30kT3S3AndroidBenchmarkTest {
                 .getExternalFilesDir("benchmarks")
                 ?.apply { mkdirs() }
             val fileName = if (emulator) {
-                "KLCN_V2_F30K_T3S3_ANDROID_EMULATOR_SMOKE.json"
+                "F30K_T3S3_ANDROID_EMULATOR_SMOKE.json"
             } else {
-                "KLCN_V2_F30K_T3S3_ANDROID_PHYSICAL_BENCHMARK.json"
+                "F30K_T3S3_ANDROID_PHYSICAL_BENCHMARK.json"
             }
             val formatted = payload.toString(2)
             val internalFile = File(internalDirectory, fileName).apply {

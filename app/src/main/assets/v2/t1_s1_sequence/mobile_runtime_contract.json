@@ -15,7 +15,7 @@
     "encoder.onnx": {
       "relative_path": "models/t1_s1/encoder.onnx",
       "size_bytes": 12482289,
-      "sha256": "16390358c41161a54e7af0598ff87336d22bcdb3ad837f7d6917d75edcd217eb"
+      "sha256": "0604b5b00b7c7efa388d87766f456b9eda6a2fe96090bf283341db6b279471dc"
     },
     "decoder.onnx": {
       "relative_path": "models/t1_s1/decoder.onnx",
