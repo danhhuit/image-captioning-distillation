@@ -1,313 +1,485 @@
-# Vision Caption
+# Mobile Image Captioning
 
-**[Tiếng Việt](README.md) | English**
+[Bản tiếng Việt](README.md)
 
-Vision Caption is an Android research mini-app developed by a team to
-evaluate and deploy compact image-captioning models. It accepts camera or
-gallery images, generates an English caption on the device, translates it into
-Vietnamese, reads either language aloud, and shares a composed image containing
-both captions. The application also includes per-account history and favorites,
-Vietnamese/English UI, light and dark themes, account administration, and a
-model registry with experiment metadata.
+This Android research application generates image captions directly on a mobile device. Users can select or capture an image, run an ONNX model, translate the English caption into Vietnamese, listen to the result, and keep a local history. Account features use a FastAPI and PostgreSQL backend when a server is configured.
 
-Current Android version: **1.7.0**.
+Current version: **1.7.0** (`versionCode 8`).
 
-> This is a research application, not a safety- or medical-grade image
-> interpretation tool. Metrics shown in the UI are Validation results scaled
-> by 100 for readability; they are not accuracy percentages. Caption quality
-> varies with the input image, dataset, and selected model.
+> This is a research mini-app for deployment validation. Metrics shown in the interface describe the corresponding checkpoints; they do not replace evaluation on the target device and dataset.
 
-### 1. Main capabilities
+## 1. Main features
 
-- Generate captions from camera and gallery images.
-- Run ONNX inference locally with ONNX Runtime Android.
-- Switch between primary and experimental model groups.
-- Use a consistent model-pair label: `Tn: <Teacher> -> Sn: <Student>`.
-- Decode captions with Beam Search (`beam size = 3`).
-- Translate English captions into Vietnamese with on-device ML Kit. The first
-  translation may require a network connection to download the language pack.
-- Read English and Vietnamese text with Android Text-to-Speech.
-- Share the source image together with its English and Vietnamese captions.
-- Display tensor contracts, preprocessing, model files, runtime, and experiment
-  metrics for the selected model.
-- Authenticate with username/email and password or Google Credential Manager.
-- Continue as Guest when account-backed features are not required.
-- Store account data centrally in PostgreSQL and use SQLite as the Android
-  cache/offline store.
-- Provide resource/action RBAC and Super Admin account management.
+- Offline image captioning with ONNX Runtime Android.
+- Selection between main and experimental models.
+- Model details including dataset, knowledge-distillation method, checkpoint, parameter count, and CIDEr-D.
+- English–Vietnamese translation with ML Kit.
+- Text-to-Speech for the selected language.
+- Local history, favourites, and image storage.
+- Image sharing with the generated caption.
+- Vietnamese and English interfaces with light, dark, and device themes.
+- Registration, sign-in, Google Sign-In, password reset, and account administration through the API.
 
-### 2. System architecture
+## 2. Repository layout
 
 ```text
-Camera / Gallery image
-        |
-        v
-Android app (Jetpack Compose)
-        |
-        +-- ONNX Runtime Android
-        |     +-- visual encoder
-        |     +-- visual memory
-        |     +-- Transformer decoder
-        |     +-- Beam Search
-        |
-        +-- SQLite cache and sync outbox
-        |
-        +-- development HTTP / production HTTPS API
-                    |
-                    v
-                 FastAPI
-                    |
-                    v
-                PostgreSQL
+image-captioning-distillation/
+├── src/                    # Android application
+│   ├── app/
+│   ├── notebooks/          # Selected reproducibility notebooks
+│   ├── scripts/            # Test and benchmark scripts
+│   └── README.md
+├── backend/                # FastAPI, PostgreSQL, and Docker Compose
+│   ├── app/
+│   ├── sql/
+│   ├── docker-compose.yml
+│   └── README.md
+└── ...
 ```
 
-Full-resolution images are processed on Android. An authenticated account may
-sync permitted caption metadata and thumbnails. The backend derives the user
-from the JWT instead of trusting a client-supplied `user_id`. The APK never
-connects directly to PostgreSQL and does not contain database credentials.
+The documentation uses these placeholders:
 
-### 3. Development requirements
+- `<repo>`: repository root;
+- `<android>`: `<repo>/src`;
+- `<backend>`: `<repo>/backend`.
 
-| Component | Requirement |
-|---|---|
-| Operating system | Windows 10/11 64-bit |
-| Android Studio | Version compatible with Android Gradle Plugin 9.4 |
-| Android SDK | Compile SDK 36 |
-| JDK | JDK 17 |
-| Docker | Docker Desktop with WSL 2 backend |
-| Android tools | `adb`, emulator or 64-bit physical device |
-| Source control | Git and Git LFS |
+The repository can be stored in any user-accessible directory.
 
-Recommended host resources are at least 16 GB RAM and 25 GB free disk space.
-An emulator should use a Google Play x86_64 system image with at least 4 GB RAM.
-For latency, memory, and thermal measurements, use a physical arm64 device;
-emulator measurements are smoke-test evidence only.
+## 3. Requirements
 
-### 4. Quick setup
+### 3.1. Android
 
-Clone the repository and retrieve model assets:
+- Windows 10/11, macOS, or Linux.
+- Android Studio with Android SDK 36.
+- JDK 23, or an Android Studio-managed JDK compatible with Gradle toolchain 23.
+- Git and Git LFS.
+- An Android API 26+ device or Android Emulator.
+
+### 3.2. Backend
+
+- Docker Desktop with Docker Compose v2.
+- PowerShell 7 on Windows when using `setup.ps1`.
+- SMTP credentials if real password-reset email delivery is required.
+
+### 3.3. Main technical versions
+
+| Component | Version |
+|---|---:|
+| Android compile/target SDK | 36 |
+| Android min SDK | 26 |
+| Gradle Wrapper | 9.6.0 |
+| Gradle JVM toolchain | 23 |
+| Kotlin | 2.2.10 |
+| Jetpack Compose BOM | 2026.02.01 |
+| ONNX Runtime Android | 1.29.0 |
+| ML Kit Translate | 17.0.3 |
+| Docker Python | 3.12 |
+| Docker PostgreSQL | 18 |
+
+## 4. Clone the repository
+
+Open a terminal in the directory where you keep development projects:
 
 ```powershell
 git clone https://github.com/danhhuit/image-captioning-distillation.git
-cd image-captioning-distillation
+Set-Location image-captioning-distillation
 git lfs install
 git lfs pull
 ```
 
-Start the backend:
+Verify the large model files:
 
 ```powershell
-cd "D:\KLCN\backend"
-Set-ExecutionPolicy -Scope Process Bypass
+git lfs ls-files
+```
+
+If an `.onnx` file is only a few bytes or begins with `version https://git-lfs.github.com`, run `git lfs pull` again.
+
+## 5. Start the backend with Docker
+
+### 5.1. Quick setup on Windows
+
+From the repository root:
+
+```powershell
+Set-Location .\backend
 .\setup.ps1
 ```
 
-Verify the API:
+The script creates `.env` when needed, generates local secrets, builds the API image, starts PostgreSQL and FastAPI, applies the password-reset migration, and checks the health endpoint.
+
+Inspect the services:
 
 ```powershell
-Invoke-RestMethod http://127.0.0.1:8000/health
-```
-
-For an emulator test session, the helper script starts/checks the services and
-verifies the selected ADB device:
-
-```powershell
-cd "D:\KLCN\src"
-.\scripts\start_android_test_environment.ps1 `
-  -DeviceSerial "emulator-5554"
-```
-
-Build and install the debug APK:
-
-```powershell
-.\gradlew.bat :app:assembleDebug
-adb install -r .\app\build\outputs\apk\debug\app-debug.apk
-```
-
-The Android emulator reaches the host API through
-`http://10.0.2.2:8000`. A USB device can use `adb reverse` and
-`http://localhost:8000`. A physical device on the local network must use the
-host computer's LAN address and a firewall rule that exposes only the API port
-to the trusted network.
-
-### 5. Docker, FastAPI, and PostgreSQL
-
-The initial `D:\KLCN\backend\setup.ps1` run creates `.env` from the example,
-generates secrets, builds the FastAPI image, starts PostgreSQL, applies the
-initial schema to a new volume, and waits for health checks.
-
-```powershell
-cd "D:\KLCN\backend"
 docker compose ps
-docker compose logs --tail 100 api
-Invoke-RestMethod http://127.0.0.1:8000/health
+docker compose logs -f api
 ```
 
-Default development endpoints:
+API documentation:
 
-| Service | Host address |
-|---|---|
-| FastAPI | `127.0.0.1:8000` |
-| Swagger/OpenAPI | `http://127.0.0.1:8000/docs` |
-| PostgreSQL | `127.0.0.1:15432` |
-| PostgreSQL inside Compose | `postgres:5432` |
-| API from Android Emulator | `10.0.2.2:8000` |
+```text
+http://localhost:8000/docs
+```
 
-Important `.env` values have separate purposes:
-
-- `POSTGRES_PASSWORD` is used by PostgreSQL and DBeaver.
-- `ADMIN_PASSWORD` is the Super Admin application password.
-- `JWT_SECRET` is backend-only.
-- `GOOGLE_WEB_CLIENT_ID` must match the Android configuration.
-
-Do not commit `.env`. Use `docker compose stop/start` to preserve containers
-and data. `docker compose down` removes containers but retains the named volume.
-`setup.ps1 -Recreate` deletes the PostgreSQL volume and is only appropriate for
-a disposable test environment after required data has been backed up.
-
-### 6. Google Sign-In and password recovery
-
-Google Sign-In requires an OAuth consent screen, an Android OAuth client for
-the application package and signing SHA-1, and a Web OAuth client. The Web
-Client ID must be identical in Android resources and backend `.env`. A testing
-consent screen also requires each tester to be listed as a test user.
-
-Password recovery only accepts an email already registered in the system. In
-production, the backend sends a time-limited verification code to that address.
-The user must provide the code, a new password, and the same password again for
-confirmation. Configure the SMTP values in backend `.env`; never expose SMTP
-credentials in the APK or source control.
-
-### 7. Selecting and interpreting models
-
-Open **Primary models** or **Experimental models** with the arrow button, then
-select a card. The next caption request uses that model. Each card presents:
-
-1. the concrete Teacher -> Student pair;
-2. the training dataset;
-3. the KD method;
-4. baseline CIDEr-D -> distilled CIDEr-D.
-
-All values below are Validation CIDEr-D scaled by 100.
-
-#### Primary models
-
-| Teacher -> Student | Dataset | KD method | Baseline | KD |
-|---|---|---|---:|---:|
-| T1: ExpansionNet v2 -> S1: MobileNetV3-Large | MSCOCO 2014 | Sequence KD | 98.58 | 110.92 |
-| T1: ExpansionNet v2 -> S1: MobileNetV3-Large | MSCOCO 2014 | Dense-Mapped Logit-KD | 98.58 | 108.45 |
-| T1: ExpansionNet v2 -> S1: MobileNetV3-Large | MSCOCO 2014 | Hybrid Sequence + Dense-Mapped Logit-KD | 98.58 | 109.95 |
-| T2: BLIP Base -> S2: MobileViT-S | MSCOCO 2014 | Sequence KD | 99.32 | 102.07 |
-| T3: SigLIP ViT-B/16 -> S3: TinyViT-5M | MSCOCO 2014 | Direct Logit-KD | 107.48 | 109.40 |
-
-#### Experimental models
-
-This table follows the exact UI order requested for comparative testing.
-
-| Teacher -> Student | Dataset | KD method | Baseline | KD |
-|---|---|---|---:|---:|
-| V1 FP32 | MSCOCO 2014 | FP32 reference runtime | — | — |
-| T1: CLIP ViT-B/32 -> S1: MobileNetV3-Large | MSCOCO 2014 | Direct Logit-KD | 98.73 | 100.73 |
-| T1: ExpansionNet v2 -> S1: MobileNetV3-Large | Flickr30K | Sequence KD | 47.62 | 38.49 |
-| T1: ExpansionNet v2 -> S1: MobileNetV3-Large | Flickr30K | Dense-Mapped Logit-KD | 47.62 | 36.93 |
-| T1: ExpansionNet v2 -> S1: MobileNetV3-Large | Flickr30K | Hybrid Sequence + Dense-Mapped Logit-KD | 47.70 | 38.07 |
-| T2: BLIP Base -> S2: MobileViT-S | Flickr30K | Sequence KD | 50.10 | 42.33 |
-| T3: SigLIP ViT-B/16 -> S3: TinyViT-5M | Flickr30K | Direct Logit-KD | 57.07 | 61.71 |
-
-The lower Flickr30K KD values are retained as experimental findings; they must
-not be presented as improvements. Metrics from different datasets are not
-directly comparable. Model selection remains based on the locked Validation
-protocol, while Held-out Test results are not used to tune the method.
-
-### 8. Using the application
-
-1. Start the backend when sign-in or synchronization is required.
-2. Sign in, register, use Google Sign-In, or continue as Guest.
-3. Open **Capture**, choose **Gallery** or **Camera**, and select an image.
-4. Select the required model and generate a caption.
-5. Review the English caption and Vietnamese translation.
-6. Select **EN** or **VI** for speech, or **Share** to export the composed image.
-
-Authenticated users can store history and favorites. Guest sessions can run
-captioning and inspect models but do not persist account history or favorites.
-The floating `+` control exposes language and theme shortcuts; `×` closes it.
-
-### 9. Testing
-
-Backend and Android gates:
+Health check:
 
 ```powershell
-cd "D:\KLCN\backend"
-docker compose ps
-Invoke-RestMethod http://127.0.0.1:8000/health
-
-cd "D:\KLCN\src"
-.\gradlew.bat :app:testDebugUnitTest
-.\gradlew.bat :app:assembleDebug
-.\gradlew.bat :app:connectedDebugAndroidTest
+Invoke-RestMethod http://localhost:8000/health
 ```
 
-Manual checks should cover duplicate username/email rejection, password and
-Google sign-in, sign-out, Guest restrictions, account data isolation, Admin
-lock/unlock and permissions, every available model, Vietnamese/English on all
-active screens, light/dark themes, offline captioning, and synchronization after
-the API returns.
+### 5.2. Manual setup
 
-Android emulator benchmarking is a functional smoke test only. Reportable
-latency, PSS memory, and thermal values require the locked physical-device
-protocol and the same model package, image set, warm-up count, and measured-run
-count used in the experiment record.
+On macOS/Linux:
 
-### 10. DBeaver connection
+```bash
+cd backend
+cp .env.example .env
+docker compose up -d --build
+docker compose ps
+```
 
-Create a PostgreSQL connection with:
+On PowerShell:
+
+```powershell
+Set-Location .\backend
+Copy-Item .env.example .env
+docker compose up -d --build
+docker compose ps
+```
+
+Replace all sample passwords, JWT secrets, administrator keys, and SMTP credentials before using a shared or public environment.
+
+### 5.3. Stop or recreate containers
+
+```powershell
+docker compose down
+docker compose up -d
+```
+
+The next command deletes the local PostgreSQL volume. Use it only when that data may be discarded:
+
+```powershell
+docker compose down -v
+```
+
+## 6. Configure the Android API address
+
+The app reads `BuildConfig.CENTRAL_API_BASE_URL`. Its Android Emulator default is:
+
+```text
+http://10.0.2.2:8000
+```
+
+`10.0.2.2` maps the emulator to the host computer's `localhost`. It is not an address for physical phones.
+
+### 6.1. Android Emulator
+
+Keep the default URL, start the backend, and verify:
+
+```powershell
+adb shell ping -c 1 10.0.2.2
+```
+
+### 6.2. USB-connected phone
+
+For local development:
+
+```powershell
+adb devices
+adb reverse tcp:8000 tcp:8000
+```
+
+Use this API URL:
+
+```text
+http://127.0.0.1:8000
+```
+
+Run `adb reverse` again after unplugging the phone, restarting it, or restarting ADB.
+
+### 6.3. Phone and computer on the same Wi-Fi network
+
+1. Find the computer's local IPv4 address.
+2. Ensure the API listens on `0.0.0.0:8000`.
+3. Allow TCP port 8000 through the private-network firewall.
+4. Set the URL to `http://<computer-ip>:8000`.
+5. Open `/health` in the phone browser before starting the app.
+
+Example local Gradle configuration:
+
+```properties
+CENTRAL_API_BASE_URL=http://192.168.1.20:8000
+```
+
+Do not commit private-network addresses, credentials, or secrets.
+
+## 7. Configure `.env`
+
+```powershell
+Set-Location .\backend
+Copy-Item .env.example .env
+```
+
+| Group | Typical variables | Purpose |
+|---|---|---|
+| PostgreSQL | `POSTGRES_DB`, `POSTGRES_USER`, `POSTGRES_PASSWORD` | Database connection |
+| API | `API_BIND_HOST`, `API_PORT` | API binding and port |
+| Authentication | `JWT_SECRET`, `ADMIN_PASSWORD` | Token signing and initial administrator account |
+| Google | `GOOGLE_WEB_CLIENT_ID` | Google ID-token verification |
+| Email | `SMTP_HOST`, `SMTP_PORT`, `SMTP_USERNAME`, `SMTP_PASSWORD` | Password-reset delivery |
+
+For a shared environment:
+
+- use strong, different values for `POSTGRES_PASSWORD`, `JWT_SECRET`, and `ADMIN_PASSWORD`;
+- replace every sample value;
+- use an application password or dedicated SMTP credential;
+- never commit `.env`.
+
+See [backend/README_EN.md](../backend/README_EN.md).
+
+## 8. Google Sign-In
+
+Google Sign-In requires a matching package name, signing-certificate SHA-1/SHA-256, and Web Client ID.
+
+Generate fingerprints on your own machine:
+
+```powershell
+Set-Location .\src
+.\gradlew.bat signingReport
+```
+
+Then:
+
+1. create or select a Google Cloud project;
+2. configure the OAuth consent screen;
+3. create an Android OAuth client for `com.klcn.mobilecaptioning`;
+4. enter the SHA-1 for the build variant being tested;
+5. create a Web OAuth client;
+6. place the Web Client ID in both the Android configuration and backend `GOOGLE_WEB_CLIENT_ID`;
+7. rebuild the app and restart the API.
+
+Do not copy another developer's signing fingerprint. Release builds must use the release-keystore fingerprint.
+
+See [AUTH_PRODUCTION_SETUP_EN.md](AUTH_PRODUCTION_SETUP_EN.md).
+
+## 9. Email password reset
+
+The password-reset flow:
+
+1. accepts an email already registered in the database;
+2. creates a time-limited one-time code;
+3. delivers the code to that email through SMTP;
+4. accepts the code, new password, and password confirmation;
+5. verifies the code and stores the new password hash.
+
+Check the migration:
+
+```powershell
+Set-Location .\backend
+docker compose exec -T postgres psql -U vision_app -d vision_caption -f /docker-entrypoint-initdb.d/002_password_reset.sql
+```
+
+Adjust the database and user names to match `.env`.
+
+## 10. Build and run
+
+### 10.1. Android Studio
+
+1. Open the `src` directory, not the whole repository.
+2. Wait for Gradle Sync.
+3. Select an emulator or physical device.
+4. Select the `app` configuration.
+5. Press **Run**.
+
+### 10.2. Terminal
+
+Windows:
+
+```powershell
+Set-Location .\src
+.\gradlew.bat clean :app:assembleDebug
+.\gradlew.bat :app:installDebug
+```
+
+macOS/Linux:
+
+```bash
+cd src
+./gradlew clean :app:assembleDebug
+./gradlew :app:installDebug
+```
+
+Debug APK:
+
+```text
+src/app/build/outputs/apk/debug/app-debug.apk
+```
+
+Release build:
+
+```powershell
+Set-Location .\src
+.\gradlew.bat :app:assembleRelease
+```
+
+Distribute a release APK only after configuring release signing, an HTTPS API URL, and production OAuth clients.
+
+## 11. Use the app
+
+1. Open **Capture**.
+2. Choose **Main models** or **Experimental models**.
+3. Expand the list and select a checkpoint.
+4. choose an image or take a photo;
+5. wait for the English caption and Vietnamese translation;
+6. use Text-to-Speech or share the image with its caption;
+7. review results in **History** and **Favourites**.
+
+An account is required only for server-backed features. Offline inference remains available in guest mode when the model package is included in the APK.
+
+## 12. Model catalogue
+
+### 12.1. Main models
+
+| Teacher → Student | Dataset | Method | Baseline → KD CIDEr-D |
+|---|---|---|---:|
+| ExpansionNet v2 → MobileNetV3-Large | MS COCO 2014 | Sequence KD | 98.58 → 110.92 |
+| ExpansionNet v2 → MobileNetV3-Large | MS COCO 2014 | Dense-Mapped Logit-KD | 98.58 → 108.45 |
+| ExpansionNet v2 → MobileNetV3-Large | MS COCO 2014 | Hybrid Sequence + Dense-Mapped Logit-KD | 98.58 → 109.95 |
+| BLIP Base → MobileViT-S | MS COCO 2014 | Sequence KD | 99.32 → 102.07 |
+| SigLIP ViT-B/16 → TinyViT-5M | MS COCO 2014 | Direct Logit-KD | 107.48 → 109.40 |
+
+### 12.2. Experimental models
+
+| Teacher → Student | Dataset | Method | Baseline → KD CIDEr-D |
+|---|---|---|---:|
+| V1 FP32 | MS COCO 2014 | Reference model | — |
+| CLIP ViT-B/32 → MobileNetV3-Large | MS COCO 2014 | Direct Logit-KD | 98.73 → 100.73 |
+| ExpansionNet v2 → MobileNetV3-Large | Flickr30K | Sequence KD | 47.62 → 38.49 |
+| ExpansionNet v2 → MobileNetV3-Large | Flickr30K | Dense-Mapped Logit-KD | 47.62 → 36.93 |
+| ExpansionNet v2 → MobileNetV3-Large | Flickr30K | Hybrid KD | 47.70 → 38.07 |
+| BLIP Base → MobileViT-S | Flickr30K | Sequence KD | 50.10 → 42.33 |
+| SigLIP ViT-B/16 → TinyViT-5M | Flickr30K | Direct Logit-KD | 57.07 → 61.71 |
+
+Flickr30K branches whose KD score is below their baseline remain experimental evidence and are not described as improvements.
+
+## 13. Testing
+
+Unit tests:
+
+```powershell
+Set-Location .\src
+.\gradlew.bat test
+```
+
+Instrumentation tests:
+
+```powershell
+.\gradlew.bat connectedAndroidTest
+```
+
+Connected devices:
+
+```powershell
+adb devices
+```
+
+Emulator benchmarks are smoke tests only. Do not report emulator latency, RAM, or thermal data as physical-device scientific measurements.
+
+## 14. Connect DBeaver to PostgreSQL
+
+Default Docker connection:
 
 | Field | Value |
 |---|---|
-| Host | `127.0.0.1` |
-| Port | `15432` |
-| Database | `vision_caption` |
-| Username | `vision_app` |
-| Password | `POSTGRES_PASSWORD` from backend `.env` |
+| Host | `localhost` |
+| Port | `POSTGRES_PORT`, default `15432` |
+| Database | `POSTGRES_DB` |
+| Username | `POSTGRES_USER` |
+| Password | `POSTGRES_PASSWORD` |
 
-The DBeaver password is not `ADMIN_PASSWORD`. Android must never connect to
-this database endpoint directly.
+1. Select **New Database Connection**.
+2. Choose **PostgreSQL**.
+3. Enter the values from `.env`.
+4. Select **Test Connection**.
+5. Allow DBeaver to download its driver when prompted.
+6. Open the `public` schema.
 
-### 11. Troubleshooting
+Do not expose PostgreSQL directly to the Internet. The default database port is bound to `127.0.0.1`.
 
-- **App reports that it cannot connect:** verify Docker health and
-  `http://127.0.0.1:8000/health`; use `10.0.2.2` on the emulator, not
-  `localhost`. For USB, run `adb reverse tcp:8000 tcp:8000`.
-- **Google reports no credentials:** use a Google Play system image, sign into
-  Google on the device, verify package/SHA-1 and Web Client ID, then reinstall
-  the APK after changing OAuth settings.
-- **Model or SHA-256 mismatch:** run `git lfs pull` and keep the ONNX file,
-  tensor contract, preprocessing metadata, vocabulary, and hash registry in
-  sync.
-- **Wrong Java version:** set Android Studio Gradle JDK to JDK 17 and check
-  `java -version` and `.\gradlew.bat --version`.
-- **Slow inference or low memory:** close unused emulators, allocate 4 GB RAM
-  to the emulator, avoid concurrent inference, or validate on a physical arm64
-  device.
-- **Database schema did not change:** create a migration for an existing
-  volume. Do not recreate a production database merely to apply a schema edit.
+## 15. Backup and restore
 
-### 12. Security and current limitations
+Backup:
 
-- Never commit `.env`, keystores, JWT secrets, passwords, or OAuth secrets.
-- Use HTTPS and a reverse proxy outside local development.
-- Do not expose PostgreSQL to the public Internet.
-- Create a dedicated release signing key and use Play App Signing before store
-  distribution; the current research release uses debug signing.
-- Production Google OAuth must include the release/Play signing SHA-1.
-- Caption generation currently produces English text; Vietnamese is an
-  on-device translation of that result.
-- Validation metrics are not a guarantee for arbitrary images.
-- Research model cards and experiment outputs must retain their dataset,
-  checkpoint, quantization, and evaluation context.
+```powershell
+Set-Location .\backend
+docker compose exec -T postgres pg_dump -U vision_app -d vision_caption > backup.sql
+```
 
-Related documents:
+Restore:
 
-- [AUTH_PRODUCTION_SETUP.md](AUTH_PRODUCTION_SETUP.md)
-- [DATABASE_ARCHITECTURE.md](DATABASE_ARCHITECTURE.md)
-- [MOBILE_UX_PRODUCT_ROADMAP.md](MOBILE_UX_PRODUCT_ROADMAP.md)
+```powershell
+Get-Content .\backup.sql | docker compose exec -T postgres psql -U vision_app -d vision_caption
+```
+
+Adjust the user and database names to match `.env`.
+
+## 16. Troubleshooting
+
+### “Unable to connect”
+
+- Check `docker compose ps`.
+- Open `/health` on the computer.
+- Use `10.0.2.2`, not `localhost`, from the emulator.
+- Run `adb reverse tcp:8000 tcp:8000` again for USB testing.
+- Check the local IP and firewall for Wi-Fi testing.
+- Rebuild after changing the API URL.
+
+### Google Sign-In rejects the account
+
+- Verify the package name.
+- Run `signingReport` and update the correct SHA.
+- Use the same Web Client ID in Android and the backend.
+- Clear app data after changing OAuth clients.
+
+### Password-reset email does not arrive
+
+- Confirm that the email exists in PostgreSQL.
+- Check SMTP variables and API logs.
+- Use an application password instead of the main email password.
+- Check spam and code expiry.
+
+### Model asset cannot be loaded
+
+- Run `git lfs pull`.
+- Verify the asset name and manifest.
+- Do not rename individual ONNX files without updating the registry.
+
+### Black screen or process crash
+
+```powershell
+adb logcat -c
+adb logcat | Select-String "AndroidRuntime|mobilecaptioning"
+```
+
+Capture the first complete stack trace.
+
+## 17. Additional documentation
+
+- [Authentication setup](AUTH_PRODUCTION_SETUP_EN.md)
+- [Data architecture](DATABASE_ARCHITECTURE_EN.md)
+- [Mobile product roadmap](MOBILE_UX_PRODUCT_ROADMAP_EN.md)
+- [Notebook catalogue](notebooks/README_EN.md)
+- [Backend guide](../backend/README_EN.md)
+
+## 18. Security
+
+- Never commit `.env`, keystores, passwords, tokens, or API keys.
+- Use HTTPS outside local development.
+- Never place the administrator key in the APK.
+- Replace all sample secrets before deployment.
+- Collect only necessary user data and disclose its use.
+- Test account deletion, locking, and password reset before release.
+
+## 19. Licensing and citation
+
+The repository contains research code, checkpoints, and documentation that may use different licences. Review the licence of every model, dataset, and library before redistribution or commercial use.

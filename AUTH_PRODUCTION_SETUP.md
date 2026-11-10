@@ -1,143 +1,180 @@
-# Cấu hình xác thực Vision Caption
+# Cấu hình xác thực cho môi trường phát hành
 
-## 1. Trạng thái hiện tại
+[English version](AUTH_PRODUCTION_SETUP_EN.md) · [Quay lại README](README.md)
 
-- Đăng nhập thường: `username` hoặc `email` + mật khẩu.
-- Đăng ký: họ tên, username duy nhất, email duy nhất, mật khẩu mạnh và xác
-  nhận mật khẩu.
-- Đăng nhập Google: Android Credential Manager + Google ID.
-- Số điện thoại không còn là phương thức đăng nhập.
-- Super Admin có RBAC, thống kê và nhật ký hoạt động của tất cả tài khoản.
-- PostgreSQL phía backend là nguồn dữ liệu trung tâm cho tài khoản, quyền,
-  audit log, lịch sử, yêu thích, tùy chọn và metadata ảnh.
-- SQLite `vision_caption.db` chỉ là cache ngoại tuyến, tùy chọn thiết bị và
-  hàng đợi đồng bộ. Backend luôn là nguồn quyết định quyền cuối cùng.
-- Chế độ Khách chỉ được tạo chú thích và xem thông tin mô hình; không được lưu
-  lịch sử hoặc yêu thích.
+Tài liệu này hướng dẫn cấu hình đăng nhập thường, Google Sign-In và đặt lại mật khẩu cho ứng dụng Mobile Image Captioning 1.7.0. Các giá trị khóa và fingerprint phải được tạo từ môi trường của người triển khai; không dùng lại thông tin của máy phát triển khác.
 
-## 2. Cấu hình Google Sign-In cho bản debug
+## 1. Chuẩn bị backend
 
-### Bước 1 — Tạo dự án và màn hình đồng ý OAuth
-
-1. Mở Google Cloud Console, tạo hoặc chọn dự án dành riêng cho môi trường test.
-2. Vào **Google Auth Platform** và cấu hình **Branding**, **Audience** và
-   **Data Access**.
-3. Với ứng dụng đang thử nghiệm, chọn trạng thái Testing và thêm tài khoản thử
-   nghiệm nếu giao diện quản trị yêu cầu.
-4. Chỉ dùng các scope cơ bản `openid`, `email`, `profile` cho đăng nhập.
-
-### Bước 2 — Tạo Android OAuth client
-
-Tạo client loại **Android** với:
-
-- Package name: `com.klcn.mobilecaptioning`
-- Debug SHA-1 trên máy hiện tại:
-  `68:E8:18:49:9F:D9:3E:2F:53:3A:80:00:9B:02:D5:A0:96:EB:D0:B0`
-- Debug SHA-256 trên máy hiện tại:
-  `3D:9E:BB:03:9E:86:2F:06:68:0D:5F:0B:E0:60:33:E1:62:FE:5E:4F:77:CD:08:CF:4F:B3:13:E1:D6:EA:06:B3`
-
-Có thể kiểm tra lại bằng PowerShell:
+Từ thư mục gốc repository:
 
 ```powershell
-& "$env:JAVA_HOME\bin\keytool.exe" -list -v `
-  -alias androiddebugkey `
-  -keystore "$env:USERPROFILE\.android\debug.keystore" `
-  -storepass android -keypass android
+Set-Location .\backend
+Copy-Item .env.example .env
 ```
 
-Khi ký APK/AAB phát hành, tạo thêm Android OAuth client cho **release SHA-1**.
-Nếu dùng Play App Signing, cũng phải khai báo SHA-1 của App Signing certificate
-trên Play Console; SHA của upload key không thay thế cho SHA này.
+Mở `.env` và cấu hình ít nhất:
 
-### Bước 3 — Tạo Web OAuth client
-
-1. Trong cùng project, tạo OAuth client loại **Web application**.
-2. Sao chép **Web Client ID** (không dùng Android Client ID).
-3. Mở `app/src/main/res/values/strings.xml` và thay:
-
-```xml
-<string name="google_web_client_id">WEB_CLIENT_ID.apps.googleusercontent.com</string>
+```dotenv
+JWT_SECRET=<chuỗi-ngẫu-nhiên-dài>
+ADMIN_PASSWORD=<mật-khẩu-quản-trị-ban-đầu>
+GOOGLE_WEB_CLIENT_ID=<web-client-id>.apps.googleusercontent.com
+SMTP_HOST=<máy-chủ-smtp>
+SMTP_PORT=587
+SMTP_USERNAME=<tài-khoản-gửi>
+SMTP_PASSWORD=<mật-khẩu-ứng-dụng>
+SMTP_FROM_EMAIL=<địa-chỉ-người-gửi>
 ```
 
-Mã nguồn truyền giá trị này vào `GetSignInWithGoogleOption.Builder(...)`, đúng
-luồng dành cho nút **Đăng nhập bằng Google**. Android Client ID chỉ dùng để
-Google đối chiếu package/SHA; không đặt Android Client ID vào `strings.xml`.
-
-### Bước 4 — Build và kiểm thử
-
-1. Sync Gradle, Clean/Rebuild project rồi cài lại ứng dụng.
-2. Nếu vừa thay OAuth client, gỡ bản APK cũ, cài lại và chờ Google đồng bộ cấu
-   hình (thường vài phút, đôi khi vài giờ).
-3. Chọn **Đăng nhập bằng Google**.
-4. Kiểm thử: tài khoản mới, tài khoản đã cấp quyền, hủy bottom sheet, thiết bị
-   có nhiều tài khoản và trường hợp không có Google Play services.
-5. Nếu consent screen ở trạng thái **Testing**, thêm đúng email trên emulator
-   vào **Audience → Test users** và bảo đảm lời nhắc Sign in with Google không
-   bị tắt trong cài đặt tài khoản Google.
-
-## 3. Khởi động môi trường đăng nhập khi kiểm thử
-
-Backend tài khoản chạy trong Docker, vì vậy mở Android Studio hoặc máy ảo
-không tự khởi động API. Trước mỗi phiên kiểm thử, chạy:
+Khởi động:
 
 ```powershell
-cd D:\KLCN\src
-.\scripts\start_android_test_environment.ps1 -DeviceSerial emulator-5554
+docker compose up -d --build
+docker compose ps
 ```
 
-Script thực hiện tự động các bước sau:
+Không đưa `ADMIN_PASSWORD`, `JWT_SECRET` hoặc mật khẩu SMTP vào APK.
 
-- khởi động Docker Desktop nếu cần;
-- khởi động PostgreSQL và Central API;
-- chờ `http://127.0.0.1:8000/health` trả về trạng thái `ok`;
-- kiểm tra thiết bị ADB;
-- cấu hình `adb reverse tcp:8000 tcp:8000` cho thiết bị USB.
+## 2. Tạo fingerprint cho Android
 
-Địa chỉ dùng theo môi trường:
+Mở terminal tại thư mục Android:
 
-- Android Emulator: `http://10.0.2.2:8000`;
-- thiết bị thật kết nối USB và đã chạy script: `http://localhost:8000`;
-- thiết bị thật kết nối cùng Wi-Fi nhưng không dùng USB: đặt địa chỉ trong
-  **Cài đặt → Kết nối máy chủ** thành `http://<IPv4-của-máy-tính>:8000` và cho
-  phép cổng TCP 8000 qua Windows Firewall.
+```powershell
+Set-Location .\src
+.\gradlew.bat signingReport
+```
 
-Nếu ứng dụng hiển thị **Thông tin đăng nhập không chính xác**, kết nối API đã
-hoạt động và cần kiểm tra lại tài khoản/mật khẩu. Nếu hiển thị **Không thể kết
-nối máy chủ**, chạy lại script trên và kiểm tra Docker Desktop.
+Ghi lại SHA-1 và SHA-256 của đúng biến thể:
 
-## 4. Yêu cầu production
+- `debug` khi chạy từ Android Studio;
+- `release` khi phát hành APK/AAB;
+- fingerprint của Play App Signing khi phân phối qua Google Play.
 
-1. Dùng project OAuth riêng cho production.
-2. Cấu hình tên, logo, email hỗ trợ, trang chủ, chính sách riêng tư và điều
-   khoản dịch vụ đúng với thương hiệu Vision Caption.
-3. Xác minh domain và hoàn tất brand verification khi phát hành công khai.
-4. Gửi Google ID token đến backend qua HTTPS. Backend phải xác minh chữ ký,
-   `aud`, `iss`, `exp` và nonce trước khi cấp phiên đăng nhập riêng của dịch vụ.
-5. Không hard-code tài khoản/mật khẩu Super Admin trong APK production.
-6. Lưu mật khẩu bằng thuật toán thích hợp phía server; áp dụng rate limit,
-   khóa tạm thời, xác minh email và quy trình khôi phục qua email.
-7. Ghi audit log bất biến cho đăng nhập, tạo mô tả, thay đổi quyền và thao tác
-   quản trị; tránh ghi token, mật khẩu hoặc dữ liệu bí mật.
+Mỗi khóa ký tạo fingerprint khác nhau. Vì vậy, giá trị trong tài liệu hoặc trên máy khác không thể thay thế kết quả `signingReport` của bạn.
 
-## 5. Checklist nghiệm thu
+## 3. Cấu hình Google Cloud
 
-- Username và email không trùng, kiểm tra không phân biệt hoa thường.
-- Mọi trường đăng ký đều được validate; mật khẩu tối thiểu 8 ký tự có chữ hoa,
-  chữ thường và số.
-- Quên mật khẩu nằm ngay dưới ô mật khẩu và chỉ nhận username/email.
-- Google Sign-In hoạt động với debug SHA và release/Play Signing SHA.
-- Guest không có quyền lưu lịch sử hoặc yêu thích.
-- Mỗi user chỉ đọc/ghi lịch sử, yêu thích và tùy chọn gắn với `user_id` của họ.
-- Super Admin xem được tổng quan, hoạt động theo user và không thể bị xóa.
-- API backend vẫn từ chối thao tác trái quyền dù UI bị can thiệp.
+1. Mở Google Cloud Console và chọn dự án.
+2. Cấu hình OAuth consent screen.
+3. Tạo **Android OAuth client**:
+   - package name: `com.klcn.mobilecaptioning`;
+   - SHA-1: fingerprint của biến thể cần chạy.
+4. Tạo **Web OAuth client**.
+5. Dùng Web Client ID cho cả ứng dụng và biến `GOOGLE_WEB_CLIENT_ID` của backend.
+6. Nếu có nhiều khóa ký, tạo Android OAuth client tương ứng cho từng SHA-1.
 
-## 6. Tài liệu chính thức
+Sau khi thay client:
 
-- Android Credential Manager — Sign in with Google:
-  https://developer.android.com/identity/sign-in/credential-manager-siwg-implementation
-- Google Cloud — quản lý OAuth client cho Android:
-  https://support.google.com/cloud/answer/15549257
-- Google OAuth production readiness:
-  https://developers.google.com/identity/protocols/oauth2/production-readiness/policy-compliance
-- Google OAuth brand verification:
-  https://developers.google.com/identity/protocols/oauth2/production-readiness/brand-verification
+```powershell
+Set-Location .\backend
+docker compose up -d --force-recreate api
+
+Set-Location ..\src
+.\gradlew.bat clean :app:assembleDebug
+```
+
+Xóa dữ liệu ứng dụng trên thiết bị để tránh token cũ:
+
+```powershell
+adb shell pm clear com.klcn.mobilecaptioning
+```
+
+## 4. Đăng nhập bằng username hoặc email
+
+API chấp nhận định danh đăng nhập theo hợp đồng backend. Trước khi kiểm thử:
+
+1. xác nhận API trả về trạng thái khỏe tại `/health`;
+2. đăng ký một tài khoản mới;
+3. kiểm tra email/username trong PostgreSQL;
+4. thử mật khẩu đúng và sai;
+5. thử tài khoản đang hoạt động và tài khoản đã khóa;
+6. xác nhận thông báo trên ứng dụng chỉ mô tả đúng kết quả thao tác.
+
+Mật khẩu chỉ được lưu dưới dạng băm ở backend. Không ghi mật khẩu thô vào log.
+
+## 5. Đặt lại mật khẩu qua email
+
+Luồng hợp lệ:
+
+1. người dùng nhập email đã tồn tại;
+2. API tạo mã dùng một lần có thời hạn;
+3. SMTP gửi mã tới email đó;
+4. người dùng nhập mã, mật khẩu mới và xác nhận mật khẩu;
+5. API kiểm tra mã rồi cập nhật mật khẩu đã băm;
+6. mã được đánh dấu đã dùng hoặc hết hạn.
+
+Áp dụng migration nếu cần:
+
+```powershell
+Set-Location .\backend
+docker compose exec -T postgres psql `
+  -U <POSTGRES_USER> `
+  -d <POSTGRES_DB> `
+  -f /docker-entrypoint-initdb.d/002_password_reset.sql
+```
+
+Thay placeholder bằng giá trị trong `.env`.
+
+Kiểm tra log:
+
+```powershell
+docker compose logs -f api
+```
+
+Không hiển thị mã đặt lại mật khẩu trực tiếp trên giao diện trong môi trường phát hành.
+
+## 6. Chọn địa chỉ API
+
+| Môi trường | URL |
+|---|---|
+| Android Emulator | `http://10.0.2.2:8000` |
+| Điện thoại USB với `adb reverse` | `http://127.0.0.1:8000` |
+| Điện thoại cùng Wi-Fi | `http://<IPv4-máy-tính>:8000` |
+| Phát hành | URL HTTPS công khai |
+
+USB:
+
+```powershell
+adb reverse tcp:8000 tcp:8000
+```
+
+Không dùng `10.0.2.2` trên điện thoại thật.
+
+## 7. Danh sách kiểm tra trước khi phát hành
+
+- [ ] Dùng release keystore và bảo quản ngoài repository.
+- [ ] Khai báo đúng SHA của release key hoặc Play App Signing.
+- [ ] Dùng HTTPS.
+- [ ] Đổi toàn bộ khóa mẫu trong `.env`.
+- [ ] Không đóng gói khóa quản trị hoặc mật khẩu SMTP trong APK.
+- [ ] Kiểm thử đăng ký, đăng nhập, Google Sign-In và đăng xuất.
+- [ ] Kiểm thử mã hết hạn, mã sai và mã đã sử dụng.
+- [ ] Kiểm thử email chưa đăng ký.
+- [ ] Kiểm thử khóa/mở khóa và xóa tài khoản.
+- [ ] Xác nhận log không chứa mật khẩu, mã đặt lại hoặc token đầy đủ.
+
+## 8. Xử lý lỗi nhanh
+
+### Google báo cấu hình không hợp lệ
+
+- chạy lại `signingReport`;
+- kiểm tra package name;
+- kiểm tra SHA của đúng biến thể;
+- kiểm tra Web Client ID ở Android và backend;
+- chờ vài phút để cấu hình OAuth được cập nhật.
+
+### Ứng dụng không kết nối API
+
+- mở `/health` từ máy tính và điện thoại;
+- kiểm tra URL theo loại thiết bị;
+- chạy lại `adb reverse` khi dùng USB;
+- kiểm tra tường lửa khi dùng Wi-Fi;
+- xem `docker compose logs -f api`.
+
+### Email không tới
+
+- kiểm tra email đã tồn tại;
+- kiểm tra SMTP host/port/TLS;
+- dùng mật khẩu ứng dụng;
+- kiểm tra thư rác;
+- kiểm tra lỗi xác thực SMTP trong log API.

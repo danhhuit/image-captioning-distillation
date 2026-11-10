@@ -1,103 +1,81 @@
-# Vision Caption Mobile — UX/Product roadmap
+# Lộ trình mini-app Mobile Image Captioning
 
-## Phiên bản 1.4.0 đã triển khai
+[English version](MOBILE_UX_PRODUCT_ROADMAP_EN.md) · [Quay lại README](README.md)
 
-- Luồng tài khoản: đăng nhập, đăng ký Email, đăng nhập SĐT bằng OTP demo,
-  quên mật khẩu và tiếp tục với tư cách Khách.
-- Google Sign-In qua Android Credential Manager. Cần thay
-  `google_web_client_id` bằng OAuth Web Client ID thật trước khi sử dụng.
-- Ba vai trò: `SUPER_ADMIN`, `USER`, `GUEST`.
-- RBAC theo tài nguyên và bốn thao tác `READ / CREATE / UPDATE / DELETE`.
-- Super Admin cố định có toàn quyền và màn hình cấu hình quyền từng User.
-- Guest được tạo caption và xem Teacher–Student Lab, nhưng không lưu lịch sử,
-  yêu thích hoặc dùng quản trị.
-- Loading overlay cho các thao tác xác thực.
-- Teacher–Student Lab:
-  - RAM tổng/khả dụng của thiết bị;
-  - số logical CPU cores;
-  - PSS hiện tại của ứng dụng;
-  - dung lượng thật của Student V1 ONNX trong APK;
-  - số tham số và footprint FP32 lý thuyết của Teacher C;
-  - latency inference Student gần nhất nếu đã có lịch sử.
+Tài liệu này ghi nhận trạng thái sản phẩm ở phiên bản 1.7.0 và các hạng mục cần kiểm chứng trước khi phát hành rộng rãi. Nội dung không thay thế issue tracker hoặc kết quả kiểm thử.
 
-## Lưu ý bảo mật trước production
+## 1. Đã có trong phiên bản hiện tại
 
-Kho tài khoản hiện tại là implementation demo cục bộ. Mật khẩu được băm bằng
-PBKDF2-HMAC-SHA256 và dữ liệu auth bị loại khỏi Android backup, nhưng client
-mobile không phải nơi phù hợp để làm nguồn phân quyền đáng tin cậy.
+- Điều hướng năm tab: Lịch sử, Yêu thích, Chụp, Mô hình và Cá nhân.
+- Chọn mô hình theo hai nhóm chính/thử nghiệm.
+- Hiển thị tên Teacher–Student, dữ liệu, phương pháp KD và CIDEr-D.
+- Suy luận ONNX trên thiết bị.
+- Dịch Anh–Việt, Text-to-Speech và chia sẻ ảnh kèm chú thích.
+- Lịch sử và yêu thích lưu cục bộ.
+- Giao diện Việt/Anh và sáng/tối.
+- Đăng ký, đăng nhập, Google Sign-In và quên mật khẩu qua API.
+- Chức năng quản trị tài khoản theo quyền.
 
-Trước khi phát hành:
+## 2. Danh mục mô hình đang hiển thị
 
-1. Chuyển tài khoản, OTP và RBAC sang backend/Firebase Authentication.
-2. Xác minh Google ID token ở backend.
-3. Không hiển thị OTP trên màn hình; gửi bằng Firebase Phone Auth/SMS gateway.
-4. Không hard-code mật khẩu Super Admin trong APK.
-5. Phát hành bằng production signing key và bật Play Integrity.
-6. Ghi audit log bất biến cho thay đổi quyền và thao tác quản trị.
+Mô hình chính:
 
-## Chức năng nên phát triển tiếp
+1. MS COCO 2014 — ExpansionNet v2 → MobileNetV3-Large — Sequence KD.
+2. MS COCO 2014 — ExpansionNet v2 → MobileNetV3-Large — Dense-Mapped Logit-KD.
+3. MS COCO 2014 — ExpansionNet v2 → MobileNetV3-Large — Hybrid KD.
+4. MS COCO 2014 — BLIP Base → MobileViT-S — Sequence KD.
+5. MS COCO 2014 — SigLIP ViT-B/16 → TinyViT-5M — Direct Logit-KD.
 
-### Ưu tiên P0 — Hoàn thiện trải nghiệm cốt lõi
+Mô hình thử nghiệm:
 
-1. **Onboarding ba bước**
-   - giới thiệu caption ngoại tuyến;
-   - giải thích quyền Camera/Thư viện;
-   - lựa chọn Guest hoặc đăng nhập.
-2. **Trợ năng**
-   - đọc caption bằng Text-to-Speech;
-   - Dynamic Type, TalkBack labels và tương phản WCAG;
-   - thao tác một tay và vùng chạm tối thiểu 48 dp.
-3. **Quyền riêng tư rõ ràng**
-   - màn hình “Dữ liệu nào nằm trên máy”;
-   - xóa ảnh, caption hoặc toàn bộ dữ liệu;
-   - khóa ứng dụng bằng sinh trắc học cho tài khoản đã đăng nhập.
-4. **Trạng thái lỗi có hướng dẫn**
-   - ảnh không đọc được;
-   - thiếu RAM;
-   - model chưa sẵn sàng;
-   - Google/SMS chưa cấu hình.
+1. V1 FP32.
+2. MS COCO 2014 — CLIP ViT-B/32 → MobileNetV3-Large — Direct Logit-KD.
+3. Flickr30K — ExpansionNet v2 → MobileNetV3-Large — Sequence KD.
+4. Flickr30K — ExpansionNet v2 → MobileNetV3-Large — Dense-Mapped Logit-KD.
+5. Flickr30K — ExpansionNet v2 → MobileNetV3-Large — Hybrid KD.
+6. Flickr30K — BLIP Base → MobileViT-S — Sequence KD.
+7. Flickr30K — SigLIP ViT-B/16 → TinyViT-5M — Direct Logit-KD.
 
-### Ưu tiên P1 — Tăng giá trị cho người dùng
+## 3. Việc cần hoàn tất trước khi phát hành
 
-1. Đọc caption bằng giọng nói và điều khiển tốc độ đọc.
-2. Dịch caption Việt–Anh, vẫn giữ caption gốc để đối chiếu.
-3. Cho phép người dùng sửa caption và đánh dấu “hữu ích/chưa đúng”.
-4. Tìm kiếm, gắn thẻ và tạo album cho lịch sử caption.
-5. Xuất caption dưới dạng text, ảnh có overlay hoặc tệp JSON.
-6. Batch caption nhiều ảnh với hàng đợi và progress riêng từng ảnh.
-7. Đồng bộ tùy chọn giữa thiết bị sau khi có backend.
+### Mức P0
 
-### Ưu tiên P2 — Thể hiện giá trị nghiên cứu Teacher–Student
+- Kiểm thử đăng nhập trên Emulator, USB và Wi-Fi với hướng dẫn API mới.
+- Kiểm thử mã đặt lại mật khẩu gửi tới đúng email.
+- Kiểm thử khóa, mở khóa, chỉnh sửa và xóa tài khoản.
+- Xác nhận mọi model registry trỏ tới asset thật.
+- Kiểm thử cold start, xoay màn hình, cấp/thu hồi quyền ảnh và máy ảnh.
+- Kiểm tra màn hình nhỏ, cỡ chữ lớn và chuỗi dài ở cả hai ngôn ngữ.
 
-1. Benchmark Student trên thiết bị:
-   - cold/warm latency;
-   - peak PSS;
-   - CPU time và wall-clock time;
-   - pin/nhiệt độ trước–sau;
-   - kích thước model.
-2. Bảng so sánh Validation Teacher/Student/KD từ artifact đã kiểm chứng:
-   CIDEr-D, BLEU-4, METEOR, ROUGE-L và CE.
-3. Chế độ “Giải thích mô hình” với pipeline:
-   `Ảnh → Encoder → Visual memory → Decoder → Beam Search → Caption`.
-4. A/B model selector khi Student KD mới được export:
-   - V1 baseline;
-   - Student KD;
-   - không đưa Teacher lên mobile nếu chưa có benchmark và memory gate.
-5. Cập nhật model có chữ ký, checksum và khả năng rollback.
+### Mức P1
 
-### Ưu tiên P3 — Quản trị
+- Chạy benchmark thống nhất trên thiết bị thật cho S1, S2 và S3.
+- Ghi nhận p50/p95, PSS, kích thước gói và nhiệt độ theo cùng giao thức.
+- Kiểm thử chia sẻ ảnh/caption trên nhiều ứng dụng đích.
+- Kiểm thử tải lại mô hình khi chuyển liên tục giữa các checkpoint.
+- Bổ sung kiểm thử accessibility cho nhãn nút và vùng chạm.
 
-1. Role templates: Viewer, Contributor, Moderator và Custom.
-2. Nhóm người dùng và kế thừa quyền.
-3. Audit log: ai đổi quyền gì, lúc nào, trước/sau.
-4. Khóa/mở tài khoản, reset phiên đăng nhập và yêu cầu đổi mật khẩu.
-5. Feature flags cho chức năng thử nghiệm.
+### Mức P2
 
-## Nguyên tắc UX
+- Cải thiện màn hình so sánh mô hình.
+- Thêm xuất lịch sử do người dùng chủ động kích hoạt.
+- Chuẩn hóa chính sách quyền riêng tư và thời hạn lưu dữ liệu.
+- Đánh giá cập nhật model package tách khỏi APK nếu cần giảm kích thước cài đặt.
 
-- Một tác vụ chính trên mỗi màn hình.
-- Không hiển thị metric nghiên cứu như phần trăm nếu metric không phải phần trăm.
-- Phân biệt rõ **đo thực tế trên thiết bị** và **số liệu tham chiếu/lý thuyết**.
-- Loading dài phải có mô tả công việc; không chỉ dùng spinner vô nghĩa.
-- Guest luôn có đường dẫn nâng cấp lên User nhưng không bị ép đăng nhập ngay.
-- Mọi thao tác xóa hoặc thay quyền cần xác nhận và phản hồi thành công/thất bại.
+## 4. Tiêu chí hoàn thành
+
+Một hạng mục chỉ được đánh dấu hoàn tất khi có:
+
+1. mã nguồn đã merge;
+2. test tự động hoặc biên bản test thủ công có thể lặp lại;
+3. ảnh/log đầu ra;
+4. tài liệu người dùng cập nhật;
+5. không còn lỗi P0 liên quan.
+
+## 5. Nguyên tắc trình bày kết quả
+
+- Phân biệt rõ mô hình chính và mô hình thử nghiệm.
+- Không gọi một nhánh là cải thiện nếu CIDEr-D thấp hơn baseline.
+- Không dùng số đo Emulator như kết quả thiết bị thật.
+- Không suy diễn đồng bộ nền hoặc chức năng chưa có test.
+- Ghi rõ tập dữ liệu, seed, checkpoint và dạng lượng tử hóa khi báo cáo.

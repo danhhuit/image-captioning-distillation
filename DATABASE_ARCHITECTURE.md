@@ -1,66 +1,105 @@
-# Kiến trúc dữ liệu Vision Caption 1.6
+# Kiến trúc dữ liệu
 
-## 1. Phân vai lưu trữ
+[English version](DATABASE_ARCHITECTURE_EN.md) · [Quay lại README](README.md)
 
-PostgreSQL của backend là nguồn dữ liệu trung tâm và có thẩm quyền. Cơ sở dữ
-liệu này lưu tài khoản, phiên xác thực, RBAC, nhật ký hoạt động, media, lịch sử
-chú thích, yêu thích và tùy chọn người dùng.
+Ứng dụng 1.7.0 tách dữ liệu thành hai phạm vi: dữ liệu cục bộ phục vụ suy luận ngoại tuyến và dữ liệu tài khoản do backend quản lý.
 
-SQLite `vision_caption.db` trên Android chỉ đảm nhiệm ba vai trò:
+## 1. Dữ liệu trên thiết bị
 
-- cache dữ liệu cần dùng khi ngoại tuyến;
-- tùy chọn cục bộ của ứng dụng và thiết bị;
-- hàng đợi `sync_outbox` để gửi thay đổi lên PostgreSQL khi có kết nối.
+Room/SQLite lưu:
 
-APK không chứa tài khoản PostgreSQL. Ứng dụng chỉ gọi FastAPI qua HTTPS; API
-xác thực JWT, kiểm tra quyền rồi mới đọc hoặc ghi PostgreSQL.
+- lịch sử chú thích;
+- đường dẫn hoặc URI ảnh do ứng dụng quản lý;
+- chú thích tiếng Anh;
+- bản dịch tiếng Việt khi có;
+- trạng thái yêu thích;
+- mô hình đã chọn và thời điểm tạo.
 
-## 2. Mô hình quan hệ PostgreSQL
+Suy luận ảnh không phụ thuộc PostgreSQL. Trọng số ONNX và vocabulary được đóng gói theo registry của ứng dụng.
 
-| Bảng | Khóa chính | Quan hệ chính |
-|---|---|---|
-| `users` | `id` UUID | Gốc của tài khoản; username/email duy nhất |
-| `permission_definitions` | `permission_key` | Danh mục `RESOURCE:ACTION` |
-| `user_permissions` | `(user_id, permission_key)` | FK tới user và định nghĩa quyền |
-| `activity_events` | `id` UUID | FK tới user; audit đăng nhập/nghiệp vụ |
-| `media_objects` | `id` UUID | FK chủ sở hữu; thumbnail có kiểm soát dung lượng |
-| `caption_history` | `id` UUID | FK user và media; chứa kết quả/metric mô hình |
-| `user_preferences` | `user_id` | Quan hệ một-một với user |
-| `revoked_tokens` | `jti` | Danh sách JWT bị thu hồi |
-| `sync_receipts` | `operation_id` UUID | Chống áp dụng lặp thao tác đồng bộ |
+## 2. Dữ liệu trên backend
 
-Các bảng liên kết dùng foreign key và chỉ mục theo user, thời gian, trạng thái
-yêu thích. Tìm kiếm audit có chỉ mục GIN toàn văn.
+PostgreSQL lưu dữ liệu liên quan đến:
 
-## 3. Ràng buộc, trigger và function
+- tài khoản và trạng thái hoạt động;
+- vai trò và quyền;
+- phiên/token theo hợp đồng API;
+- yêu cầu đặt lại mật khẩu;
+- nhật ký quản trị cần thiết.
 
-- `citext` bảo đảm username/email duy nhất không phân biệt hoa thường.
-- `prevent_user_delete` chặn hard-delete mọi tài khoản. Quản trị chỉ được
-  khóa/mở khóa bằng `is_active`.
-- `set_updated_at` cập nhật thời điểm sửa bản ghi.
-- `audit_user_status_change` tự ghi audit khi khóa hoặc mở khóa tài khoản.
-- `cleanup_orphan_media_after_caption_delete` dọn media không còn tham chiếu.
-- `set_user_active`, `replace_user_permissions` và `upsert_caption` đóng gói
-  thao tác nghiệp vụ theo giao dịch.
-- `v_user_activity_summary` và `v_user_caption_summary` cung cấp số liệu tổng
-  hợp cho Super Admin.
+Schema ban đầu nằm trong:
 
-## 4. Đồng bộ và phân tách dữ liệu
+```text
+backend/sql/001_schema.sql
+backend/sql/002_password_reset.sql
+```
 
-Mỗi dữ liệu nghiệp vụ đều gắn `user_id`; backend lấy user từ JWT, không tin
-`user_id` do ứng dụng tự gửi. Media được đồng bộ trước caption. Mỗi thao tác có
-`operation_id` để retry an toàn, sau đó mới được đánh dấu hoàn tất trong
-SQLite.
+## 3. Luồng dữ liệu
 
-Guest có ID cục bộ cố định nhưng không có quyền tạo `HISTORY` hoặc `FAVORITE`.
-Kết quả chú thích của Guest chỉ tồn tại trên màn hình hiện tại và không được
-đưa vào SQLite hay PostgreSQL. Khi đổi tài khoản, Android nạp cache theo đúng
-owner và đồng bộ với dữ liệu trung tâm của tài khoản đó.
+```text
+Ảnh
+  → tiền xử lý trên Android
+  → encoder/decoder ONNX
+  → chú thích tiếng Anh
+  → dịch và đọc nội dung trên thiết bị
+  → lưu lịch sử cục bộ
 
-## 5. Vị trí triển khai
+Tài khoản
+  → FastAPI
+  → xác thực và phân quyền
+  → PostgreSQL
+```
 
-- Backend, Docker Compose và schema: `D:\KLCN\backend`
-- Schema PostgreSQL: `D:\KLCN\backend\sql\001_schema.sql`
-- Hướng dẫn cài đặt: `D:\KLCN\backend\README.md`
-- SQLite/cache Android: `VisionDatabase.kt`
-- API và hàng đợi đồng bộ: `CentralApiClient.kt`, `AppStorage.kt`
+Không mô tả ứng dụng là tự động đồng bộ nền nếu chức năng đó chưa có kiểm thử xác nhận. Mọi tính năng đồng bộ trong tương lai phải nêu rõ thời điểm kích hoạt, dữ liệu truyền đi và cơ chế xử lý lỗi.
+
+## 4. Kết nối PostgreSQL
+
+Với Docker Compose mặc định:
+
+| Trường | Nguồn giá trị |
+|---|---|
+| Host | `localhost` |
+| Port | `POSTGRES_PORT`, mặc định `15432` |
+| Database | `POSTGRES_DB` |
+| Username | `POSTGRES_USER` |
+| Password | `POSTGRES_PASSWORD` |
+
+Không hard-code thông tin này trong mã nguồn hoặc tài liệu triển khai. Đọc từ `<repo>/backend/.env`.
+
+## 5. Migration
+
+Khởi tạo container:
+
+```powershell
+Set-Location .\backend
+docker compose up -d --build
+```
+
+Áp dụng lại migration đặt lại mật khẩu:
+
+```powershell
+docker compose exec -T postgres psql `
+  -U <POSTGRES_USER> `
+  -d <POSTGRES_DB> `
+  -f /docker-entrypoint-initdb.d/002_password_reset.sql
+```
+
+## 6. Sao lưu
+
+```powershell
+Set-Location .\backend
+docker compose exec -T postgres pg_dump `
+  -U <POSTGRES_USER> `
+  -d <POSTGRES_DB> > backup.sql
+```
+
+Không lưu bản sao chứa dữ liệu thật trong repository.
+
+## 7. Nguyên tắc bảo vệ dữ liệu
+
+- Mật khẩu chỉ được lưu dưới dạng băm.
+- Mã đặt lại mật khẩu có thời hạn và chỉ dùng một lần.
+- Cổng PostgreSQL chỉ bind vào localhost trong cấu hình phát triển.
+- API công khai phải dùng HTTPS.
+- Tệp `.env`, bản sao cơ sở dữ liệu và token không được commit.
+- Chỉ thu thập dữ liệu cần thiết cho chức năng đã công bố.
