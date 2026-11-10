@@ -5,7 +5,7 @@
 ```text
 notebooks/
 ├── flickr30k/                         # 63 notebook
-├── mscoco/                            # 112 notebook
+├── mscoco/                            # 113 notebook
 │   ├── core_pipeline/
 │   │   ├── phase1/
 │   │   ├── phase2/
@@ -27,7 +27,7 @@ notebooks/
 | Nhóm | Số notebook | Nội dung chính |
 |---|---:|---|
 | `flickr30k` | 63 | Dữ liệu, baseline Student, Teacher handoff, Sequence KD, Direct Logit-KD, Dense-Mapped Logit-KD, Hybrid KD, kiểm định, ONNX và INT8 trên Flickr30K |
-| `mscoco` | 112 | Quy trình MS COCO 2014, baseline Teacher–Student, các nhánh KD, Dense-Mapped Logit-KD và Hybrid KD |
+| `mscoco` | 113 | Quy trình MS COCO 2014, baseline Teacher–Student, các nhánh KD, Dense-Mapped Logit-KD, kết quả định tính và Hybrid KD |
 | `mobile` | 55 | Xuất mô hình, kiểm tra ONNX, lượng tử hóa INT8, khóa package Android và kiểm định chất lượng trước triển khai |
 
 ## Tệp kiểm kê
